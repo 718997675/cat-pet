@@ -103,10 +103,55 @@ header{
   touch-action:none;
 }
 .stage:active{cursor:grabbing}
-.stage::after{ /* 顶部柔光 */
+.stage::after{ /* 顶部柔光，跟着猫的视线轻微移动 */
   content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;
-  background:radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.55),transparent 58%);
+  background:radial-gradient(120% 90% at var(--gx,50%) var(--gy,0%),rgba(255,255,255,.55),transparent 58%);
 }
+
+/* ---------- 自主行为提示 ---------- */
+.life-tip{
+  position:absolute;left:50%;bottom:5.5%;z-index:3;
+  transform:translate(-50%,5px);
+  padding:5px 13px;border-radius:999px;white-space:nowrap;
+  font-size:12px;letter-spacing:.02em;color:#8b7254;
+  background:rgba(255,253,248,.9);border:1px solid rgba(190,168,136,.3);
+  opacity:0;pointer-events:none;
+  transition:opacity .35s ease,transform .35s ease;
+}
+.life-tip.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- AI 大脑设置 ---------- */
+.ai-mask{
+  position:fixed;inset:0;background:rgba(60,48,36,.32);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:19;
+}
+.ai-mask.on{opacity:1;pointer-events:auto}
+.ai-panel{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);
+  width:min(92vw,360px);z-index:20;
+  padding:18px 20px 16px;border-radius:16px;
+  background:#fffdf9;border:1px solid rgba(190,168,136,.4);
+  box-shadow:0 24px 60px -18px rgba(120,92,60,.5);
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;
+}
+.ai-panel.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.ai-panel h3{margin:0 0 3px;font-size:14px;font-weight:500;color:#5a4c40}
+.ai-panel .ai-sub{font-size:12px;color:#a08c76;margin-bottom:12px}
+.ai-panel label{display:block;font-size:12.5px;color:#7a6857;margin:9px 0 3px}
+.ai-panel input,.ai-panel select{
+  width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;
+  border:1px solid rgba(190,168,136,.45);background:#fff;
+  font-size:13px;color:#5a4c40;outline:none;
+}
+.ai-panel input:focus,.ai-panel select:focus{border-color:#c79a63}
+.ai-state{font-size:12px;color:#8b7254;margin-top:9px}
+.ai-actions{display:flex;gap:8px;margin-top:12px}
+.ai-actions button{
+  flex:1;padding:9px;border-radius:9px;border:1px solid rgba(190,168,136,.45);
+  background:#f6ead9;color:#6b5744;font-size:13px;cursor:pointer;
+}
+.ai-actions button:last-child{background:#fff;color:#8b7254}
+.ai-panel p{font-size:11.5px;line-height:1.55;color:#a08c76;margin:11px 0 0}
 .stage img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:var(--op,50% 50%);
@@ -133,6 +178,7 @@ header{
 .cat-set{
   position:absolute;inset:0;opacity:0;pointer-events:none;
   transition:opacity .5s ease;
+  will-change:transform,opacity;
 }
 .cat-set.on{opacity:1}
 /* 扑击 */
@@ -356,6 +402,7 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
           <video class="vid" data-pose="sit"   src="assets/video/idle-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
           <video class="vid" data-pose="belly" src="assets/video/belly-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
         </div>
+        <div class="life-tip" id="lifeTip"></div>
       </div>
       <div class="wake-tip" id="wakeTip">轻点一下画面，它就会动起来</div>
     </div>
@@ -384,6 +431,10 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
         <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
         猫嗓门
       </button>
+      <button class="tool" id="aiBtn" title="设置 AI 大脑">
+        <svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4 3.5 3.5 0 0 0-1 6.8V17a3 3 0 0 0 3 3h1"/><path d="M12 3a4 4 0 0 1 4 4 3.5 3.5 0 0 1 1 6.8V17a3 3 0 0 1-3 3h-1"/><path d="M12 3v17"/></svg>
+        AI 大脑
+      </button>
     </div>
     <div class="say">
       <button class="mic" id="micBtn" title="点一下开始说话" aria-label="语音说话">
@@ -395,9 +446,30 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
     <div class="hint" id="hint">在它身上来回摸 · 点麦克风跟它说话</div>
   </footer>
 </div>
+<div class="ai-mask" id="aiMask"></div>
+<div class="ai-panel" id="aiPanel">
+  <h3>AI 大脑</h3>
+  <div class="ai-sub">只在你说话时调用一次 deepseek-flash</div>
+  <label for="aiMode">接入方式</label>
+  <select id="aiMode">
+    <option value="local">本机直连（Key 存当前浏览器）</option>
+    <option value="proxy">后端代理（前端不带 Key）</option>
+  </select>
+  <label for="aiKey">API Key</label>
+  <input id="aiKey" type="password" placeholder="sk-…" autocomplete="off">
+  <label for="aiProxy">代理地址（代理模式填）</label>
+  <input id="aiProxy" placeholder="https://…/chat" autocomplete="off">
+  <div class="ai-state" id="aiState">未启用 · 使用内置台词库</div>
+  <div class="ai-actions">
+    <button id="aiSave">保存</button>
+    <button id="aiClear">清除</button>
+  </div>
+  <p>Key 只保存在你当前浏览器，不会写进网页或仓库。留空则自动使用内置台词库，离线也能玩。</p>
+</div>
 <canvas id="fx"></canvas>
 <div class="laser" id="laser"><div class="t"></div></div>
 
+<script src="ai.local.js" onerror="this.remove()"></script>
 <script>
 "use strict";
 /* =========================================================
@@ -756,6 +828,8 @@ function decidePose(now){
   // 松手后还赖着翻一会儿肚皮，别台词说"翻身躺倒"画面却已经坐直了
   if (now < S.petHoldUntil) return 'belly';
   if (S.sleeping) return 'loaf';
+  /* 行为层：空闲时猫自己决定的姿态（用户交互始终优先） */
+  if (S.life && S.life.pose && now < S.life.poseUntil) return S.life.pose;
   return 'sit';
 }
 
@@ -1011,6 +1085,7 @@ document.querySelectorAll('.tool').forEach(btn => {
    ========================================================= */
 function switchCat(id){
   if (id === curCat || !imgs[id]) return;
+  interruptLife();
   const from = document.querySelector(`.cat-set[data-cat="${curCat}"]`);
   const to   = document.querySelector(`.cat-set[data-cat="${id}"]`);
 
@@ -1129,6 +1204,7 @@ addEventListener('pointermove', e => {
 
 addEventListener('pointerdown', e => {
   ac();
+  interruptLife();
   S.lastTouch = performance.now();
   if (S.tool === 'yarn' && S.ball){
     const c = stageCenter();
@@ -1145,6 +1221,147 @@ addEventListener('pointerdown', e => {
 }, { passive: true });
 
 /* =========================================================
+   AI 大脑 —— DeepSeek 云模型（deepseek-flash）
+   只在用户说话时调用一次；超时 / 不可用自动回退内置台词库。
+   Key 绝不写进网页源码：本机由 ai.local.js 注入，线上由设置面板
+   或一次性链接 ?k= 注入，之后只存在当前浏览器的 localStorage。
+   ========================================================= */
+const AI_KEY = 'cat-pet-ai-v1';
+const AI = {
+  cfg: { enabled:false, mode:'local', key:'', proxy:'', model:'deepseek-flash' },
+  endpoint: 'https://api.deepseek.com/chat/completions',
+  lastCall: 0, busy: false,
+};
+const aiBtn=$('#aiBtn'), aiPanel=$('#aiPanel'), aiMask=$('#aiMask');
+const aiMode=$('#aiMode'), aiKey=$('#aiKey'), aiProxy=$('#aiProxy');
+const aiSave=$('#aiSave'), aiClear=$('#aiClear'), aiState=$('#aiState');
+
+function aiLoadCfg(){
+  try {
+    const raw = localStorage.getItem(AI_KEY);
+    if (raw){ const d = JSON.parse(raw); if (d && typeof d === 'object') Object.assign(AI.cfg, d); }
+  } catch (e) {}
+  /* 一次性链接 ?k=sk-xxx：注入后立刻从地址栏抹掉，不留在历史记录 */
+  try {
+    const u = new URL(location.href);
+    const k = u.searchParams.get('k');
+    if (k && /^sk-/.test(k)){
+      AI.cfg.key = k; AI.cfg.mode = 'local'; AI.cfg.enabled = true;
+      u.searchParams.delete('k');
+      history.replaceState(null, '', u.pathname + u.search + u.hash);
+      aiPersist();
+    }
+  } catch (e) {}
+  /* 本地专用文件，不进发布包 */
+  const local = window.CAT_AI_CONFIG;
+  if (local && typeof local === 'object'){
+    Object.assign(AI.cfg, local);
+    if (local.key) AI.cfg.enabled = true;
+  }
+}
+function aiPersist(){
+  try {
+    localStorage.setItem(AI_KEY, JSON.stringify({
+      enabled:AI.cfg.enabled, mode:AI.cfg.mode, key:AI.cfg.key,
+      proxy:AI.cfg.proxy, model:AI.cfg.model,
+    }));
+  } catch (e) {}
+}
+function aiReady(){
+  const c = AI.cfg;
+  if (!c.enabled) return false;
+  return c.mode === 'proxy' ? !!c.proxy : /^sk-/.test(c.key || '');
+}
+function aiRefreshUI(){
+  if (aiBtn) aiBtn.classList.toggle('on', aiReady());
+  if (aiState) aiState.textContent = aiReady()
+    ? (AI.cfg.mode === 'proxy' ? '已启用 · 代理模式' : '已启用 · DeepSeek 云模型')
+    : '未启用 · 使用内置台词库';
+  if (aiMode) aiMode.value = AI.cfg.mode;
+  if (aiKey && document.activeElement !== aiKey) aiKey.value = AI.cfg.key || '';
+  if (aiProxy) aiProxy.value = AI.cfg.proxy || '';
+}
+function aiPanelOpen(on){
+  if (aiPanel) aiPanel.classList.toggle('on', on);
+  if (aiMask) aiMask.classList.toggle('on', on);
+  if (on) aiRefreshUI();
+}
+if (aiBtn) aiBtn.addEventListener('click', () => { ac(); aiPanelOpen(!aiPanel.classList.contains('on')); });
+if (aiMask) aiMask.addEventListener('click', () => aiPanelOpen(false));
+if (aiSave) aiSave.addEventListener('click', () => {
+  AI.cfg.mode  = aiMode.value === 'proxy' ? 'proxy' : 'local';
+  AI.cfg.key   = (aiKey.value || '').trim();
+  AI.cfg.proxy = (aiProxy.value || '').trim();
+  AI.cfg.model = 'deepseek-flash';
+  AI.cfg.enabled = AI.cfg.mode === 'proxy' ? !!AI.cfg.proxy : /^sk-/.test(AI.cfg.key);
+  aiPersist(); aiRefreshUI(); aiPanelOpen(false);
+  hint.textContent = aiReady() ? 'AI 大脑已开 —— 跟它说句话试试' : '已关闭，使用内置台词库';
+  setTimeout(() => { if (!V.on) hint.textContent = defaultHint(); }, 2200);
+});
+if (aiClear) aiClear.addEventListener('click', () => {
+  AI.cfg = { enabled:false, mode:'local', key:'', proxy:'', model:'deepseek-flash' };
+  try { localStorage.removeItem(AI_KEY); } catch (e) {}
+  aiRefreshUI();
+});
+
+const AI_SYS = `你是一只真实的小猫，名字叫{NAME}，{SUB}。主人刚对你说了一句话。
+只输出一个 JSON 对象，不要解释、不要代码块，字段如下：
+{"line":"你要说的话，一句，口语、有猫的性格，可用括号写动作，不超过40字",
+ "emotion":"happy|calm|curious|grumpy|sleepy 之一",
+ "action":"glance|stretch|belly|meow|crouch|loaf|doze|none 之一，表示你听完想做的动作",
+ "mood":-3到3的整数，表示心情变化}
+不要复述主人的话，不要客套，不要说自己是 AI。`;
+
+function aiContext(text){
+  const n = S.needs ? S.needs[curCat] : null;
+  const st = ['心情' + Math.round(S.moods[curCat]) + '/100'];
+  if (S.life && S.life.action) st.push('刚才在' + S.life.action);
+  if (n) st.push('困意' + Math.round(n.sleep*100) + '、亲密度' + Math.round(n.bond*100));
+  return '【状态】' + st.join('，') + '。\n【主人说】' + text;
+}
+async function aiReply(text){
+  if (!aiReady() || AI.busy || typeof fetch !== 'function') return null;
+  const now = Date.now();
+  if (now - AI.lastCall < 900) return null;
+  AI.lastCall = now; AI.busy = true;
+  const c = AI.cfg;
+  const body = {
+    model: c.model || 'deepseek-flash',
+    messages: [
+      { role:'system', content: AI_SYS.replace('{NAME}', CATS[curCat].name).replace('{SUB}', CATS[curCat].sub) },
+      { role:'user', content: aiContext(text) },
+    ],
+    thinking:{type:'disabled'},
+    response_format:{type:'json_object'},
+    max_tokens:180, temperature:1.1, stream:false,
+  };
+  const headers = { 'Content-Type':'application/json' };
+  let url = AI.endpoint;
+  if (c.mode === 'proxy' && c.proxy) url = c.proxy;
+  else headers['Authorization'] = 'Bearer ' + c.key;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(() => { try { ctrl && ctrl.abort(); } catch(e){} }, 1900);
+  try {
+    const r = await fetch(url, {
+      method:'POST', headers, body:JSON.stringify(body),
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    const raw = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    if (!raw) throw new Error('empty');
+    const j = JSON.parse(String(raw).replace(/^```json\s*|\s*```$/g,'').trim());
+    if (!j || typeof j.line !== 'string' || !j.line.trim()) throw new Error('bad json');
+    return {
+      line: j.line.trim().slice(0,80),
+      emotion: j.emotion, action: j.action,
+      mood: clamp(parseInt(j.mood,10) || 0, -3, 3),
+    };
+  } catch (e) { return null; }
+  finally { clearTimeout(timer); AI.busy = false; }
+}
+
+/* =========================================================
    说话
    ========================================================= */
 function submitSay(rawText){
@@ -1152,22 +1369,33 @@ function submitSay(rawText){
   const text = src.trim();
   if (!text) return;
   ac();
+  interruptLife();
   sayInput.value = '';
   S.lastTouch = performance.now();
   S.sleeping = false;
   S.talkUntil = performance.now() + 1700;
   const pitch = rand(.95, 1.1);
   setTimeout(() => meow(pitch), 90);
-  setTimeout(() => {
-    const r = replyTo(text);
-    say(r, 4200);
-    speakCat(r);
+  addMood(1);
+  if (/笨|丑|讨厌|滚|烦|臭/i.test(text)) addMood(-6);
+
+  const finish = (line, ai) => {
+    say(line, 4200);
+    speakCat(line);
     const c = stageCenter();
     spawn('note', c.x + rand(-30,30), c.y - c.r*.15, { n: 2 });
-  }, 420);
-  addMood(2);
-  // 生气的话会掉心情
-  if (/笨|丑|讨厌|滚|烦|臭/i.test(text)) addMood(-10);
+    if (ai){
+      if (ai.mood) addMood(ai.mood);
+      if (ai.action && ai.action !== 'none') playAutoAction(ai.action, performance.now());
+    }
+  };
+
+  /* AI 大脑优先；1.9 秒超时或不可用时无缝回退内置台词库 */
+  if (aiReady()){
+    aiReply(text).then(res => finish(res && res.line ? res.line : replyTo(text), res || null));
+  } else {
+    setTimeout(() => finish(replyTo(text), null), 420);
+  }
 }
 $('#sayBtn').addEventListener('click', () => submitSay());
 sayInput.addEventListener('keydown', e => {
@@ -1475,6 +1703,274 @@ function tryPounce(now){
 }
 
 /* =========================================================
+   行为层 —— 让猫「自己活着」
+   感知(指针/时钟/闲置) → 需求状态 → 行为树 → 每帧动画参数。
+   用户交互永远优先于自主行为；行为树只在你没理它的时候接管。
+   ========================================================= */
+const LIFE_KEY = 'cat-pet-life-v2';
+const lifeTip = $('#lifeTip');
+const REDUCED = (() => {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch (e) { return false; }
+})();
+
+/* 1D 平滑值噪声：无循环节，微动不会「又回到开头」 */
+const LNOISE = Array.from({ length: 256 }, () => Math.random() * 2 - 1);
+function noise1(x){
+  const i = Math.floor(x), f = x - i;
+  const a = LNOISE[((i % 256) + 256) % 256];
+  const b = LNOISE[(((i + 1) % 256) + 256) % 256];
+  const t = f * f * (3 - 2 * f);
+  return a + (b - a) * t;
+}
+function spring(o, target, k, damp, dt){
+  o.v += (target - o.x) * k * dt;
+  o.v *= Math.max(0, 1 - damp * dt);
+  o.x += o.v * dt;
+}
+
+function freshNeeds(){
+  return { energy: rand(.62,.9), sleep: rand(.05,.25), curiosity: rand(.35,.7), bond: rand(.2,.45) };
+}
+S.needs = {};
+Object.keys(CATS).forEach(id => { S.needs[id] = freshNeeds(); });
+S.life = {
+  pose:null, poseUntil:0, action:'breathe', actUntil:0,
+  lastAction:'', nextDecide:0, alertUntil:0, busyUntil:0,
+  tilt:{x:0,v:0}, lift:{x:0,v:0}, squash:{x:0,v:0},
+  gaze:{x:0,y:0}, sway:0, breath:0, t:0,
+  tipTimer:0, visits:0, lastSeen:0, lastSave:0,
+};
+
+const IDLE_LINES = [
+  '（没人理我。我接受了。）',
+  '喵。（就一声，没什么意思）',
+  '（看了你一眼，又移开）',
+  '这个屋子，我已经巡视过三遍了。',
+  '……（尾巴尖自己动了一下）',
+  '（打了个很小的哈欠）',
+];
+
+/* 行为树候选：权重由需求实时决定，所以不会按固定顺序演 */
+const AUTO_ACTS = [
+  { id:'glance',  min:1.6, max:3.2,  pose:null,     tip:'（歪头看向别处）',       w:n => 1 + n.curiosity * 1.6 },
+  { id:'ear',     min:1.2, max:2.2,  pose:'crouch', tip:'（耳朵转了一下）',       w:n => .6 + n.curiosity * 1.2 },
+  { id:'stretch', min:1.8, max:2.8,  pose:'loaf',   tip:'（伸了个懒腰）',         w:n => .8 + n.energy * .9 },
+  { id:'loaf',    min:7,   max:15,   pose:'loaf',   tip:'（趴下来歇会儿）',       w:n => 1 + n.sleep * 1.4 },
+  { id:'belly',   min:5,   max:10,   pose:'belly',  tip:'（翻了个身，露出肚皮）', w:n => .5 + n.bond * 1.8 },
+  { id:'doze',    min:10,  max:20,   pose:'loaf',   tip:'（打起盹来）',           w:n => .3 + n.sleep * 2.6 },
+  { id:'meow',    min:1.4, max:2.2,  pose:'meow',   tip:null,                    w:n => .5 + n.bond * 1.2 },
+  { id:'groom',   min:2.5, max:4.5,  pose:null,     tip:'（低头舔了舔爪子）',     w:n => 1.1 },
+  { id:'crouch',  min:1.4, max:2.6,  pose:'crouch', tip:'（忽然盯住什么）',       w:n => .3 + n.curiosity * 1.5 + n.energy * .6 },
+];
+
+function lifeBusy(now){
+  return S.petting || S.tool !== 'none' || V.on || now < S.talkUntil || S.sleeping;
+}
+function lifeIdle(now){
+  return !lifeBusy(now) && now > S.life.busyUntil && now - S.lastTouch > 2600;
+}
+function interruptLife(){
+  const L = S.life, now = performance.now();
+  L.pose = null; L.poseUntil = 0;
+  L.action = 'breathe'; L.actUntil = 0;
+  L.busyUntil = now + 2200;
+  L.nextDecide = now + 1100;
+  hideLifeTip();
+}
+function lifeTipSay(text, ms){
+  if (!lifeTip || !text) return;
+  lifeTip.textContent = text;
+  lifeTip.classList.add('on');
+  clearTimeout(S.life.tipTimer);
+  S.life.tipTimer = setTimeout(hideLifeTip, ms);
+}
+function hideLifeTip(){
+  if (lifeTip) lifeTip.classList.remove('on');
+  clearTimeout(S.life.tipTimer);
+}
+function setAutoPose(pose, now, dur){
+  S.life.pose = pose;
+  S.life.poseUntil = now + dur;
+}
+/* AI 大脑返回的动作，直接驱动同一套行为层 */
+function playAutoAction(id, now){
+  const L = S.life;
+  const def = AUTO_ACTS.find(a => a.id === id);
+  if (!def) return;
+  L.action = id; L.actUntil = now + 2600; L.lastAction = id;
+  if (def.pose) setAutoPose(def.pose, now, 2800);
+  L.busyUntil = now + 3400;
+  L.nextDecide = now + 3400;
+}
+function decideAuto(now, night){
+  const L = S.life, n = S.needs[curCat];
+  const pool = AUTO_ACTS.map(a => ({ a, w: Math.max(.05, a.w(n)) }));
+  for (const p of pool){
+    if (night && (p.a.id === 'doze' || p.a.id === 'loaf')) p.w *= 2.2;
+    if (p.a.id === L.lastAction) p.w *= .12;
+    if (S.moods[curCat] < 35 && (p.a.id === 'belly' || p.a.id === 'meow')) p.w *= .35;
+  }
+  let r = Math.random() * pool.reduce((s,p) => s + p.w, 0);
+  let chosen = pool[0].a;
+  for (const p of pool){ r -= p.w; if (r <= 0){ chosen = p.a; break; } }
+
+  const dur = rand(chosen.min, chosen.max) * 1000;
+  L.lastAction = chosen.id;
+  L.action = chosen.id;
+  L.actUntil = now + Math.min(dur, 3400);
+  if (chosen.pose) setAutoPose(chosen.pose, now, dur);
+  else { L.pose = null; L.poseUntil = 0; }
+
+  if (chosen.tip && Math.random() < .5) lifeTipSay(chosen.tip, 2100);
+  if (chosen.id === 'meow'){
+    setTimeout(() => meow(rand(.9,1.12)), 120);
+    if (Math.random() < .3) setTimeout(() => say(pick(IDLE_LINES), 2600), 260);
+  }
+  if (chosen.id === 'doze') n.sleep = clamp(n.sleep - .3, 0, 1);
+  if (chosen.id === 'stretch') n.energy = clamp(n.energy - .1, 0, 1);
+  if (chosen.id === 'belly' || chosen.id === 'meow') addMood(.6);
+}
+
+/* 每帧：感知 → 状态演化 → 决策 → 连续动画参数 → 渲染 */
+function stepLife(dt, now){
+  const L = S.life, n = S.needs[curCat];
+  L.t += dt;
+
+  const c = stageCenter();
+  const den = Math.max(1, c.r * 2.2);
+  const gx = clamp((S.ptr.x - c.x) / den, -1, 1);
+  const gy = clamp((S.ptr.y - c.y) / den, -1, 1);
+  L.gaze.x = lerp(L.gaze.x, gx, 1 - Math.pow(.02, dt));
+  L.gaze.y = lerp(L.gaze.y, gy, 1 - Math.pow(.02, dt));
+
+  const hour = new Date().getHours();
+  const night = (hour >= 23 || hour < 6) ? 1 : 0;
+  const busy = lifeBusy(now);
+  n.sleep     = clamp(n.sleep + dt * (.0035 + night * .004 + (S.sleeping ? -.012 : 0)), 0, 1);
+  n.energy    = clamp(n.energy + dt * (S.sleeping ? .010 : busy ? -.006 : -.0012), 0, 1);
+  n.curiosity = clamp(n.curiosity + dt * (busy ? -.010 : .007), 0, 1);
+  n.bond      = clamp(n.bond + dt * (busy ? .006 : -.0004), 0, 1);
+
+  /* 指针快速晃动 → 警觉，反应是连续的 */
+  if (S.ptr.speed > 34 && now > L.alertUntil && !busy && Math.random() < .3){
+    L.alertUntil = now + 4200;
+    L.action = 'alert'; L.actUntil = now + 1300;
+    n.curiosity = clamp(n.curiosity + .18, 0, 1);
+    if (Math.random() < .45) setAutoPose('crouch', now, 1500);
+    lifeTipSay(pick(['（耳朵刷地竖起来）','（瞳孔忽然放大，盯住你）','（尾巴尖停住了）']), 1900);
+  }
+
+  if (now >= L.nextDecide){
+    L.nextDecide = now + rand(900, 1800);
+    if (lifeIdle(now) && now >= L.poseUntil) decideAuto(now, night);
+  }
+  if (L.pose && now >= L.poseUntil) L.pose = null;
+
+  computeLiving(dt, now);
+  renderLiving();
+  jitterVideo();
+
+  if (now - L.lastSave > 5000){ L.lastSave = now; saveLife(); }
+}
+
+function computeLiving(dt, now){
+  const L = S.life, t = L.t;
+  const slow = Math.sin(t * (2 * Math.PI / 3.6));
+  const fast = Math.sin(t * (2 * Math.PI / 7.9) + 1.3) * .32;
+  const wob  = noise1(t * .55) * .22;
+  const doze = L.action === 'doze' || S.sleeping;
+  const amp  = (doze ? 1.7 : 1) * (REDUCED ? .35 : 1);
+  L.breath = (slow + fast + wob) * amp;
+  L.sway   = (noise1(t * .17 + 40) * 1.1 + Math.sin(t * .23) * .5) * (REDUCED ? .3 : 1);
+
+  let tiltT = 0, liftT = 0, squashT = 0;
+  if (now < L.actUntil){
+    if (L.action === 'glance') tiltT = 2.2;
+    else if (L.action === 'groom') tiltT = -1.8;
+    else if (L.action === 'alert' || L.action === 'ear' || L.action === 'crouch') liftT = 1;
+    else if (L.action === 'stretch') squashT = 1;
+  }
+  spring(L.tilt,   tiltT,   42, 9,  dt);
+  spring(L.lift,   liftT,   60, 11, dt);
+  spring(L.squash, squashT, 34, 8,  dt);
+}
+
+function renderLiving(){
+  const L = S.life;
+  const set = document.querySelector('.cat-set.on');
+  if (!set) return;
+  const amp = REDUCED ? .35 : 1;
+  const br = L.breath;
+  const BASE = 1.012;
+  const sx = BASE - br * .0032 - L.squash.x * .012;
+  const sy = BASE + br * .0060 + L.squash.x * .022;
+  const tx = L.gaze.x * 3.2 * amp + L.sway * 1.4;
+  const ty = -br * 1.5 - L.lift.x * 3.2 + L.gaze.y * 1.6 * amp + (L.action === 'doze' ? 3 : 0);
+  const rot = L.tilt.x + L.gaze.x * .55 * amp + L.sway * .18;
+  set.style.transform = 'translate3d(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px,0) rotate(' +
+    rot.toFixed(2) + 'deg) scale(' + sx.toFixed(4) + ',' + sy.toFixed(4) + ')';
+  stage.style.setProperty('--gx', (50 + L.gaze.x * 14).toFixed(1) + '%');
+  stage.style.setProperty('--gy', (L.gaze.y * 10).toFixed(1) + '%');
+}
+
+/* 不再从头循环：到尾就跳到随机位置 + 随机速率，眨眼/呼吸的时机不再固定 */
+function armVideo(v){
+  if (!v || v.dataset.armed) return;
+  v.dataset.armed = '1';
+  v.loop = false;
+  v.addEventListener('loadedmetadata', () => { try { v.playbackRate = rand(.9,1.12); } catch(e){} });
+  v.addEventListener('ended', () => {
+    try { v.currentTime = rand(.1, Math.min(2.6, (v.duration || 5) * .48)); v.play(); } catch(e){}
+  });
+}
+function jitterVideo(){
+  const v = (vid[curCat] || {})[S.pose];
+  if (!v || v.dataset.ready !== '1' || v.dataset.blocked === '1' || v.paused) return;
+  const d = v.duration;
+  if (!d || !isFinite(d) || d < 1) return;
+  if (v.currentTime >= d - .3){
+    try {
+      v.currentTime = rand(.1, Math.min(2.6, d * .48));
+      if (Math.random() < .5) v.playbackRate = rand(.9,1.12);
+    } catch(e){}
+  }
+}
+
+/* 记忆：心情、需求、来访时间都留住，隔很久回来会有不同反应 */
+function loadLife(){
+  try {
+    const raw = localStorage.getItem(LIFE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object') return null;
+    if (d.moods) for (const id in d.moods) if (id in S.moods) S.moods[id] = clamp(+d.moods[id] || 0, 0, 100);
+    if (d.needs) for (const id in d.needs) if (id in S.needs && d.needs[id]){
+      for (const k in S.needs[id]) if (typeof d.needs[id][k] === 'number') S.needs[id][k] = clamp(d.needs[id][k], 0, 1);
+    }
+    return d;
+  } catch(e){ return null; }
+}
+function saveLife(){
+  try {
+    localStorage.setItem(LIFE_KEY, JSON.stringify({
+      moods:S.moods, needs:S.needs, lastSeen:Date.now(), visits:S.life.visits,
+    }));
+  } catch(e){}
+}
+function initLife(){
+  const mem = loadLife();
+  S.life.visits = (mem && +mem.visits || 0) + 1;
+  S.life.lastSeen = (mem && +mem.lastSeen) || 0;
+  const away = S.life.lastSeen ? Date.now() - S.life.lastSeen : 0;
+  Object.values(vid).forEach(vs => Object.values(vs).forEach(armVideo));
+  refreshMood();
+  S.life.busyUntil = performance.now() + 3200;
+  window.__catLife = S.life;
+  return away;
+}
+
+/* =========================================================
    主循环
    ========================================================= */
 let last = performance.now();
@@ -1486,6 +1982,9 @@ function frame(now){
 
   /* 指针速度自然衰减：鼠标停住后就不再算"在甩" */
   S.ptr.speed *= Math.max(0, 1 - 7 * dt);
+
+  /* ---- 行为层：感知 → 状态 → 决策 → 每帧动画参数（须在姿态判定之前） ---- */
+  stepLife(dt, now);
 
   /* ---- 姿态 ---- */
   setPose(decidePose(now));
@@ -1602,7 +2101,9 @@ function frame(now){
    ========================================================= */
 function boot(){
   imgs[curCat].sit.classList.add('on');
-  refreshMood();
+  const away = initLife();
+  aiLoadCfg();
+  aiRefreshUI();
   requestAnimationFrame(t => { last = t; frame(t); });
 
   // 视频就绪 → 接管对应姿态（真正"活"起来）
@@ -1642,8 +2143,20 @@ function boot(){
     tryPlay(v);
   }, 3800);
 
-  // 进场打个招呼
-  setTimeout(() => say(CATS[curCat].intro, 3200), 700);
+  // 进场打个招呼：隔很久没来会有「重逢」反应
+  setTimeout(() => {
+    if (away > 6 * 3600 * 1000){
+      say(pick([
+        '（听见门响，从窝里抬起头，看了你很久）……你回来了。',
+        '喵——（绕着你的脚转了两圈，才想起来要矜持）',
+        '（假装没在等，但尾巴已经竖起来了）',
+      ]), 3600);
+      addMood(6);
+      S.needs[curCat].bond = clamp(S.needs[curCat].bond + .12, 0, 1);
+    } else {
+      say(CATS[curCat].intro, 3200);
+    }
+  }, 700);
   // 预加载另一只猫，切换不闪白
   Object.values(imgs).forEach(set => Object.values(set).forEach(im => { const i = new Image(); i.src = im.src; }));
 }
@@ -1652,6 +2165,8 @@ else addEventListener('load', boot);
 
 // 失焦时停掉呼噜，别在后台一直响
 addEventListener('blur', () => { purrStop(); S.petting = false; });
+addEventListener('pagehide', saveLife);
+addEventListener('visibilitychange', () => { if (document.hidden) saveLife(); });
 // 手机切后台再回来，视频会被系统暂停且不一定自己恢复
 document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPlay(true); });
 </script>
