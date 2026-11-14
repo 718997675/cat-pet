@@ -155,7 +155,8 @@ header{
 .stage img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:var(--op,50% 50%);
-  opacity:0;transform:translate(var(--ox,0px),var(--oy,0px)) scale(var(--s,1));
+  opacity:0;color:transparent;font-size:0;
+  transform:translate(var(--ox,0px),var(--oy,0px)) scale(var(--s,1));
   transition:opacity .4s ease,transform .6s cubic-bezier(.22,1,.36,1);
   will-change:opacity,transform;
 }
@@ -499,6 +500,7 @@ const pick  = a => a[(Math.random()*a.length)|0];
 const S = {
   moods: { orange: 74, ragdoll: 80, tabby: 78 },
   pose: 'sit',
+  shownPose: 'sit',   // 实际渲染出来的姿态（目标图未解码时可能与 pose 不同）
   tool: 'none',
   petting: false,
   petDist: 0,
@@ -757,16 +759,64 @@ function setPose(name){
   applyPose();
 }
 
-/* 视频/静帧的统一显隐：有对应姿态的视频就播视频，否则回落到照片 */
+/* 静帧永远做底：视频只有真的画出了帧才叠上去。
+   这样 play() 恢复中、seek 中、被系统拦下、视频加载失败时都不会露出空白或破图图标。 */
+function imgReady(im){
+  if (!im) return false;
+  try {
+    /* Safari 里 complete===true 只代表「下载完」，位图可能还没解码；
+       这时把 opacity 给上去会短暂画出破图占位（蓝色问号小方块）。
+       支持 decode() 的浏览器一律等解码完成才允许显示。 */
+    if (typeof im.decode === 'function') return im.dataset.decoded === '1';
+    return !!(im.complete && im.naturalWidth > 0);
+  } catch(e){ return false; }
+}
+function videoHasFrame(v){
+  return !!(v && v.dataset.ready === '1' &&
+            v.dataset.blocked !== '1' && v.dataset.frame === '1');
+}
+function watchImg(im){
+  if (!im || im.dataset.watched === '1') return;
+  im.dataset.watched = '1';
+  const done = () => {
+    if (im.dataset.decoded === '1') return;
+    im.dataset.decoded = '1';
+    applyPose();
+  };
+  const fallback = () => {
+    try { if (im.complete && im.naturalWidth > 0) done(); } catch(e){}
+  };
+  im.addEventListener('load', () => { if (typeof im.decode !== 'function') done(); });
+  if (typeof im.decode === 'function'){
+    try { im.decode().then(done).catch(() => {}); } catch(e){ done(); }
+    // 后台标签 / 低电量模式下 decode() 可能迟迟不 settle，给个超时兜底
+    setTimeout(fallback, 1600);
+  } else {
+    fallback();
+  }
+}
 function applyPose(){
   const set = imgs[curCat] || {};
   const vs  = vid[curCat] || {};
-  const v = vs[S.pose];
-  // blocked = 系统不让播。这时回落照片（比定格在某一帧干净），等用户点一下再切回来
-  const live = !!(v && v.dataset.ready === '1' && v.dataset.blocked !== '1');
-  for (const k in set) set[k].classList.toggle('on', k === S.pose && !live);
-  for (const k in vs)  vs[k].classList.toggle('on',
-    k === S.pose && vs[k].dataset.ready === '1' && vs[k].dataset.blocked !== '1');
+  const want = S.pose;
+  const target = set[want];
+  let shown = want;
+  /* 目标静帧还没解码好（首次用到该姿态、CDN 慢、手机省流量）就先留在上一张，
+     绝不把 opacity 给到一张还没画出来的图 —— 那正是破图占位图标出现的原因 */
+  if (!imgReady(target)){
+    watchImg(target);
+    shown = (S.shownPose && imgReady(set[S.shownPose])) ? S.shownPose : 'sit';
+    if (!imgReady(set[shown])){
+      const any = Object.keys(set).find(k => imgReady(set[k]));
+      // 一张都没解码好（刚启动的那几十毫秒）：保持现有画面不动，
+      // 等 decode 完成后自动重算，绝不把 opacity 给到还没画出来的图
+      if (!any){ syncPlay(); return; }
+      shown = any;
+    }
+  }
+  S.shownPose = shown;
+  for (const k in set) set[k].classList.toggle('on', k === shown);
+  for (const k in vs)  vs[k].classList.toggle('on', k === shown && videoHasFrame(vs[k]));
   syncPlay();
 }
 
@@ -775,7 +825,11 @@ function syncPlay(force){
   for (const id in vid){
     for (const pose in vid[id]){
       const v = vid[id][pose];
-      const should = id === curCat && pose === S.pose && v.dataset.ready === '1';
+      const want = S.shownPose || S.pose;
+      // 该姿态没有专属视频时，让 sit 视频在底下继续跑（只是不显示），切回来立刻有画面
+      const noOwnVideo = !vid[id][want];
+      const should = id === curCat && v.dataset.ready === '1' &&
+                     (pose === want || (pose === 'sit' && noOwnVideo));
       if (should) {
         // 已经被系统拦过一次就别反复重试了（会 play→reject→applyPose→play 转圈），
         // 等用户手势走 force 这条路
@@ -1093,6 +1147,7 @@ function switchCat(id){
   Object.values(vid[curCat] || {}).forEach(v => v.classList.remove('on'));
   curCat = id;
   S.pose = 'sit';
+  S.shownPose = 'sit';
   if (from) from.classList.remove('on');
   if (to) to.classList.add('on');
   // 切过去的这只猫恢复完整预载，否则手机上要等它现下现解
@@ -1925,7 +1980,7 @@ function armVideo(v){
   });
 }
 function jitterVideo(){
-  const v = (vid[curCat] || {})[S.pose];
+  const v = (vid[curCat] || {})[S.shownPose || S.pose];
   if (!v || v.dataset.ready !== '1' || v.dataset.blocked === '1' || v.paused) return;
   const d = v.duration;
   if (!d || !isFinite(d) || d < 1) return;
@@ -2108,6 +2163,19 @@ function boot(){
 
   // 视频就绪 → 接管对应姿态（真正"活"起来）
   Object.values(vid).forEach(vs => Object.values(vs).forEach(v => {
+    /* canplay 只代表「能播」，不代表「已经有画面」。play() 刚恢复或 seek 未完成时
+       视频层是透明的，此时必须让底下的照片顶着 */
+    const markFrame = () => {
+      if (v.dataset.frame === '1') return;
+      v.dataset.frame = '1';
+      applyPose();
+    };
+    v.addEventListener('playing', markFrame);
+    v.addEventListener('timeupdate', markFrame);
+    v.addEventListener('seeked', markFrame);
+    if (typeof v.requestVideoFrameCallback === 'function'){
+      try { v.requestVideoFrameCallback(markFrame); } catch(e){}
+    }
     const mark = () => {
       if (v.dataset.ready === '1') return;
       v.dataset.ready = '1';
@@ -2121,6 +2189,7 @@ function boot(){
     // 手机上网络抖动很常见：加载失败要能自愈，别一次失败就永远静帧
     v.addEventListener('error', () => {
       v.dataset.ready = '';
+      v.dataset.frame = '';
       applyPose();
       setTimeout(() => { try { v.load(); } catch (e) {} }, 1600);
     });
@@ -2158,7 +2227,10 @@ function boot(){
     }
   }, 700);
   // 预加载另一只猫，切换不闪白
-  Object.values(imgs).forEach(set => Object.values(set).forEach(im => { const i = new Image(); i.src = im.src; }));
+  Object.values(imgs).forEach(set => Object.values(set).forEach(im => {
+    watchImg(im);
+    const i = new Image(); i.src = im.src;
+  }));
 }
 if (document.readyState === 'complete') boot();
 else addEventListener('load', boot);
