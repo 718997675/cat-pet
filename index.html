@@ -382,8 +382,8 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
           <img data-pose="belly"  style="--s:0.98" src="assets/cat-belly.jpg"  alt="橘子翻肚皮">
           <img data-pose="crouch" style="--s:1.02" src="assets/cat-crouch.jpg" alt="橘子准备扑">
           <img data-pose="meow"   style="--s:1.00" src="assets/cat-meow.jpg"   alt="橘子喵">
-          <video class="vid" data-pose="sit"   src="assets/video/idle-orange.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
-          <video class="vid" data-pose="belly" src="assets/video/belly-orange.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
+          <video class="vid" data-pose="sit"   src="assets/video/idle-orange.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
+          <video class="vid" data-pose="belly" src="assets/video/belly-orange.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
         </div>
         <div class="cat-set" data-cat="ragdoll">
           <img data-pose="sit"    style="--s:1.08;--oy:-1%"  src="assets/rag-sit.jpg"    alt="团子坐着">
@@ -391,8 +391,8 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
           <img data-pose="belly"  style="--s:1.14;--oy:1%"  src="assets/rag-belly.jpg"  alt="团子翻肚皮">
           <img data-pose="crouch" style="--s:1.06;--oy:-1%"  src="assets/rag-crouch.jpg" alt="团子准备扑">
           <img data-pose="meow"   style="--s:1.08;--oy:-1%"  src="assets/rag-meow.jpg"   alt="团子喵">
-          <video class="vid" data-pose="sit"   src="assets/video/idle-ragdoll.mp4"  muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
-          <video class="vid" data-pose="belly" src="assets/video/belly-ragdoll.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
+          <video class="vid" data-pose="sit"   src="assets/video/idle-ragdoll.mp4"  muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
+          <video class="vid" data-pose="belly" src="assets/video/belly-ragdoll.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
         </div>
         <div class="cat-set" data-cat="tabby">
           <img data-pose="sit"    style="--s:1.00" src="assets/tabby-sit.jpg"    alt="阿狸坐着">
@@ -400,8 +400,8 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
           <img data-pose="belly"  style="--s:0.98" src="assets/tabby-belly.jpg"  alt="阿狸翻肚皮">
           <img data-pose="crouch" style="--s:1.02" src="assets/tabby-crouch.jpg" alt="阿狸准备扑">
           <img data-pose="meow"   style="--s:1.00" src="assets/tabby-meow.jpg"   alt="阿狸喵">
-          <video class="vid" data-pose="sit"   src="assets/video/idle-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
-          <video class="vid" data-pose="belly" src="assets/video/belly-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="auto"></video>
+          <video class="vid" data-pose="sit"   src="assets/video/idle-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
+          <video class="vid" data-pose="belly" src="assets/video/belly-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
         </div>
         <div class="life-tip" id="lifeTip"></div>
       </div>
@@ -762,14 +762,9 @@ function setPose(name){
 /* 静帧永远做底：视频只有真的画出了帧才叠上去。
    这样 play() 恢复中、seek 中、被系统拦下、视频加载失败时都不会露出空白或破图图标。 */
 function imgReady(im){
-  if (!im) return false;
-  try {
-    /* Safari 里 complete===true 只代表「下载完」，位图可能还没解码；
-       这时把 opacity 给上去会短暂画出破图占位（蓝色问号小方块）。
-       支持 decode() 的浏览器一律等解码完成才允许显示。 */
-    if (typeof im.decode === 'function') return im.dataset.decoded === '1';
-    return !!(im.complete && im.naturalWidth > 0);
-  } catch(e){ return false; }
+  /* complete + naturalWidth 才算「有画面」。decode() 只作预热，
+     不作硬门槛：后台标签里它常常不 settle，卡住就变成永久空白。 */
+  try { return !!(im && im.complete && im.naturalWidth > 0); } catch(e){ return false; }
 }
 function videoHasFrame(v){
   return !!(v && v.dataset.ready === '1' &&
@@ -778,22 +773,15 @@ function videoHasFrame(v){
 function watchImg(im){
   if (!im || im.dataset.watched === '1') return;
   im.dataset.watched = '1';
-  const done = () => {
-    if (im.dataset.decoded === '1') return;
-    im.dataset.decoded = '1';
-    applyPose();
-  };
-  const fallback = () => {
-    try { if (im.complete && im.naturalWidth > 0) done(); } catch(e){}
-  };
-  im.addEventListener('load', () => { if (typeof im.decode !== 'function') done(); });
+  const retry = () => applyPose();
+  im.addEventListener('load', retry);
+  im.addEventListener('error', retry);
+  // 提前解码，让首次姿态切换不撞上「下载完但还没解码」的那一瞬
   if (typeof im.decode === 'function'){
-    try { im.decode().then(done).catch(() => {}); } catch(e){ done(); }
-    // 后台标签 / 低电量模式下 decode() 可能迟迟不 settle，给个超时兜底
-    setTimeout(fallback, 1600);
-  } else {
-    fallback();
+    try { im.decode().then(retry).catch(() => {}); } catch(e){}
   }
+  // 缓存命中时 load 事件早就过了，主动补一次
+  if (imgReady(im)) setTimeout(retry, 0);
 }
 function applyPose(){
   const set = imgs[curCat] || {};
@@ -2155,7 +2143,9 @@ function frame(now){
    启动
    ========================================================= */
 function boot(){
-  imgs[curCat].sit.classList.add('on');
+  /* 不再无条件把 sit 图点亮：图还没到就给 opacity 会画出破图占位。
+     applyPose 会在图片就绪时显示，没就绪就等 load/decode 回调自动补上。 */
+  applyPose();
   const away = initLife();
   aiLoadCfg();
   aiRefreshUI();
@@ -2195,10 +2185,14 @@ function boot(){
     });
   }));
 
-  // 四路同时预载会互相抢带宽，导致当前这只猫迟迟不就绪 —— 其余先只拿元数据
+  // 6 段视频若都 preload=auto，会一起抢带宽把首屏图片拖慢好几秒。
+  // 只有「当前这只猫 + 当前姿态」全量预载，其余一律只拿元数据。
   Object.entries(vid).forEach(([id, vs]) => {
-    if (id === curCat) return;
-    for (const k in vs) vs[k].preload = 'metadata';
+    for (const k in vs){
+      const active = id === curCat && k === S.pose;
+      vs[k].preload = active ? 'auto' : 'metadata';
+      if (active && vs[k].readyState === 0){ try { vs[k].load(); } catch(e){} }
+    }
   });
 
   // 有些手机浏览器会直接无视 preload="auto"（省流量 / 低电量），视频根本不下载，
@@ -2226,14 +2220,16 @@ function boot(){
       say(CATS[curCat].intro, 3200);
     }
   }, 700);
-  // 预加载另一只猫，切换不闪白
-  Object.values(imgs).forEach(set => Object.values(set).forEach(im => {
-    watchImg(im);
-    const i = new Image(); i.src = im.src;
-  }));
+  // 各姿态都登记就绪监听，切换不闪白
+  Object.values(imgs).forEach(set => Object.values(set).forEach(watchImg));
+  // 不赌某一个事件：资源陆续到达的时点各重算一次，保证首屏一定出现猫
+  [200, 700, 1500, 3000].forEach(ms => setTimeout(applyPose, ms));
+  addEventListener('load', applyPose);
 }
-if (document.readyState === 'complete') boot();
-else addEventListener('load', boot);
+/* 不等 load：load 要等 15 张图 + 6 段视频全部下完，慢网络下好几秒
+   圆形区域都是空的。脚本本就在 body 末尾，DOM 就绪即可启动。 */
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
 
 // 失焦时停掉呼噜，别在后台一直响
 addEventListener('blur', () => { purrStop(); S.petting = false; });
