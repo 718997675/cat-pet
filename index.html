@@ -36,7 +36,7 @@ header{
 .name small{font-size:12px;font-weight:400;color:#9c8b7a;margin-left:8px;letter-spacing:.04em}
 .switch{display:flex;gap:4px;padding:3px;border-radius:999px;
   background:rgba(255,255,255,.5);border:1px solid rgba(196,168,132,.28);
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin-left:6px}
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin-left:auto}
 .sw{
   padding:5px 13px;border:none;border-radius:999px;background:transparent;
   font-family:inherit;font-size:12.5px;color:#9c8b7a;letter-spacing:.06em;
@@ -59,6 +59,38 @@ header{
 .eco-bar>i{display:block;height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1),background .5s}
 .eco-item.hungry{color:#c9763f}
 .eco-item.bored{color:#9a86ad}
+/* 四项状态卡：心情 / 饱食 / 兴致 / 亲近，摆在猫下方一眼可见 */
+.status-strip{
+  flex:0 0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;width:100%;max-width:660px;margin:0 auto 8px;padding:0 16px;
+}
+.stat{
+  display:flex;align-items:center;gap:7px;min-width:0;
+  padding:7px 9px;border-radius:12px;
+  background:rgba(255,255,255,.58);border:1px solid rgba(196,168,132,.26);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 6px 16px -12px rgba(146,113,74,.5);
+}
+.stat-ico{
+  flex:0 0 auto;width:23px;height:23px;border-radius:7px;
+  display:grid;place-items:center;color:#b88a54;
+  background:linear-gradient(150deg,rgba(248,214,166,.55),rgba(240,190,132,.28));
+}
+.stat-ico svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.stat-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.stat-head{display:flex;align-items:baseline;justify-content:space-between;gap:4px;min-width:0}
+.stat-name{font-size:11px;color:#a08c76;white-space:nowrap}
+.stat-val{
+  font-size:11.5px;color:#6b5744;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.stat-bar{height:4px;border-radius:3px;background:rgba(180,160,135,.2);overflow:hidden}
+.stat-bar>i{
+  display:block;height:100%;border-radius:3px;
+  transition:width .7s cubic-bezier(.22,1,.36,1),background .5s;
+}
+.stat.warn .stat-ico{color:#c2703a;background:linear-gradient(150deg,rgba(248,190,150,.6),rgba(226,140,90,.28))}
+.stat.warn .stat-val{color:#b96a34}
 /* 讨食 / 喂食提示 */
 .beg-tip{
   position:absolute;left:50%;top:9%;z-index:4;transform:translate(-50%,-6px);
@@ -399,7 +431,6 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
 @media (max-width:400px){
   header{padding:calc(14px + env(safe-area-inset-top)) 16px 2px;gap:9px}
   .name{font-size:16px;letter-spacing:.04em}
-  .switch{margin-left:2px}
   .sw{padding:5px 11px;font-size:12px;letter-spacing:.03em}
   .mood{gap:0}
   .mood-label{display:none}
@@ -413,7 +444,13 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
   .eco-item svg{width:12px;height:12px}
 }
 @media (max-width:560px){
-  .eco{display:none}   /* 窄屏优先保证昵称/切换/心情不换行 */
+  .eco{display:none}   /* 旧版顶栏状态已移到底部状态卡 */
+  .status-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:6px}
+  .stat{padding:6px 8px;gap:6px;border-radius:10px}
+  .stat-ico{width:20px;height:20px;border-radius:6px}
+  .stat-ico svg{width:12px;height:12px}
+  .stat-name{font-size:10px}
+  .stat-val{font-size:10.5px}
 }
 @media (max-height:640px){
   header{padding:calc(8px + env(safe-area-inset-top)) 16px 0;gap:10px}
@@ -428,12 +465,20 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
   .say button{padding:0 18px}
   .hint{font-size:10.5px;margin-top:6px}
   .bubble{font-size:13px;padding:10px 14px;max-width:86%}
+  /* 矮屏把四项压成紧凑一行，不抢猫的地方 */
+  .status-strip{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:4px}
+  .stat{padding:4px 6px;gap:5px;border-radius:9px}
+  .stat-ico{display:none}
+  .stat-name{font-size:9.5px}
+  .stat-val{font-size:10px}
+  .stat-body{gap:3px}
 }
 @media (max-height:420px){
   .stage{width:min(34vw,56vh,280px)}
   .name{display:none}
   .tools{margin-bottom:4px}
   .hint{display:none}
+  .status-strip{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .stage-wrap{animation:none}
@@ -449,20 +494,6 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
       <button class="sw on" data-cat="orange">橘子</button>
       <button class="sw" data-cat="ragdoll">团子</button>
       <button class="sw" data-cat="tabby">阿狸</button>
-    </div>
-    <div class="eco" id="eco">
-      <span class="eco-item" id="ecoFull" title="饱食度：越低越饿">
-        <svg viewBox="0 0 24 24"><path d="M4 12h16l-1.8 6.4a2 2 0 0 1-1.9 1.4H7.7a2 2 0 0 1-1.9-1.4L4 12z"/><path d="M9 9V6M12 9V5M15 9V6"/></svg>
-        <span class="eco-bar"><i id="fullFill"></i></span>
-      </span>
-      <span class="eco-item" id="ecoJoy" title="兴致：越低越玩腻了">
-        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3l5 2-2 5"/></svg>
-        <span class="eco-bar"><i id="joyFill"></i></span>
-      </span>
-    </div>
-    <div class="mood">
-      <span class="mood-label" id="moodLabel">心情不错</span>
-      <div class="mood-bar"><div class="mood-fill" id="moodFill"></div></div>
     </div>
   </header>
 
@@ -505,6 +536,25 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
     <div class="voice-hud" id="voiceHud">
       <div class="wave" id="wave"></div>
       <span class="vt" id="voiceText">在听…</span>
+    </div>
+  </div>
+
+  <div class="status-strip" id="statusStrip">
+    <div class="stat" id="statMood">
+      <span class="stat-ico"><svg viewBox="0 0 24 24"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/></svg></span>
+      <span class="stat-body"><span class="stat-head"><span class="stat-name">心情</span><span class="stat-val" id="moodLabel">心情不错</span></span><span class="stat-bar"><i id="moodFill"></i></span></span>
+    </div>
+    <div class="stat" id="statFull">
+      <span class="stat-ico"><svg viewBox="0 0 24 24"><path d="M4 12h16l-1.8 6.4a2 2 0 0 1-1.9 1.4H7.7a2 2 0 0 1-1.9-1.4L4 12z"/><path d="M9 9V6M12 9V5M15 9V6"/></svg></span>
+      <span class="stat-body"><span class="stat-head"><span class="stat-name">饱食</span><span class="stat-val" id="fullLabel">吃得刚好</span></span><span class="stat-bar"><i id="fullFill"></i></span></span>
+    </div>
+    <div class="stat" id="statJoy">
+      <span class="stat-ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3l5 2-2 5"/></svg></span>
+      <span class="stat-body"><span class="stat-head"><span class="stat-name">兴致</span><span class="stat-val" id="joyLabel">还有玩心</span></span><span class="stat-bar"><i id="joyFill"></i></span></span>
+    </div>
+    <div class="stat" id="statBond">
+      <span class="stat-ico"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.3A4 4 0 0 1 12 8a4 4 0 0 1 7 2.7C19 15.6 12 20 12 20z"/></svg></span>
+      <span class="stat-body"><span class="stat-head"><span class="stat-name">亲近</span><span class="stat-val" id="bondLabel">还算亲近</span></span><span class="stat-bar"><i id="bondFill"></i></span></span>
     </div>
   </div>
 
@@ -605,8 +655,14 @@ const hint    = $('#hint');
 const moodFill= $('#moodFill');
 const moodLabel=$('#moodLabel');
 const fullFill = $('#fullFill');
+const fullLabel= $('#fullLabel');
 const joyFill  = $('#joyFill');
-const ecoFull  = $('#ecoFull');
+const joyLabel = $('#joyLabel');
+const bondFill = $('#bondFill');
+const bondLabel= $('#bondLabel');
+const statMood = $('#statMood'), statFull = $('#statFull');
+const statJoy  = $('#statJoy'),  statBond = $('#statBond');
+const ecoFull  = $('#ecoFull');   // 旧顶栏元素，保留引用避免遗留调用报错
 const ecoJoy   = $('#ecoJoy');
 const begTip   = $('#begTip');
 const feedBtn  = $('#feedBtn');
@@ -1252,6 +1308,25 @@ function moodText(v){
   if (v >= 12) return '不太高兴';
   return '想自己待着';
 }
+/* 饱食 / 兴致 / 亲近也各有一句人话，直接写在状态卡上 */
+function fullText(v){
+  if (v < .28) return '饿坏了';
+  if (v < .5)  return '有点饿';
+  if (v < .8)  return '吃得刚好';
+  return '吃饱了';
+}
+function joyText(v){
+  if (v < .28) return '玩腻了';
+  if (v < .5)  return '有点无聊';
+  if (v < .78) return '还有玩心';
+  return '兴致勃勃';
+}
+function bondText(v){
+  if (v < .25) return '有点生疏';
+  if (v < .5)  return '还算亲近';
+  if (v < .78) return '挺黏你的';
+  return '非常依赖';
+}
 function refreshMood(){
   const m = S.moods[curCat];
   moodFill.style.width = clamp(m, 3, 100) + '%';
@@ -1260,28 +1335,43 @@ function refreshMood(){
   moodFill.style.background = m < 25
     ? 'linear-gradient(90deg,#c9b7a3,#a8937c)'
     : `linear-gradient(90deg,#f5d09a,hsl(${hue} 72% 58%))`;
+  if (statMood) statMood.classList.toggle('warn', m < 30);
 }
 function addMood(n){
   S.moods[curCat] = clamp(S.moods[curCat] + n, 0, 100);
   refreshMood();
 }
-/* 饱食 / 兴致两条状态条：把"生态"直观地摆给主人看 */
+/* 饱食 / 兴致 / 亲近：底部四张状态卡的主刷新入口 */
 function refreshEco(){
   const n = S.needs[curCat];
   if (!n) return;
   const full = clamp(1 - n.hunger, 0, 1);
+  const joy  = clamp(n.joy, 0, 1);
+  const bond = clamp(n.bond, 0, 1);
   if (fullFill){
     fullFill.style.width = (full*100).toFixed(0) + '%';
     fullFill.style.background = full < .28
       ? 'linear-gradient(90deg,#e6a869,#d2703a)'
       : 'linear-gradient(90deg,#f0c48c,#dca05a)';
   }
+  if (fullLabel) fullLabel.textContent = fullText(full);
+  if (statFull) statFull.classList.toggle('warn', full < .28);
   if (joyFill){
-    joyFill.style.width = (clamp(n.joy,0,1)*100).toFixed(0) + '%';
-    joyFill.style.background = n.joy < .3
+    joyFill.style.width = (joy*100).toFixed(0) + '%';
+    joyFill.style.background = joy < .3
       ? 'linear-gradient(90deg,#c0b3cc,#9a86ad)'
       : 'linear-gradient(90deg,#a8cf9a,#7cae78)';
   }
+  if (joyLabel) joyLabel.textContent = joyText(joy);
+  if (statJoy) statJoy.classList.toggle('warn', joy < .3);
+  if (bondFill){
+    bondFill.style.width = (bond*100).toFixed(0) + '%';
+    bondFill.style.background = bond < .3
+      ? 'linear-gradient(90deg,#d9c4b6,#bfa28e)'
+      : 'linear-gradient(90deg,#f4c6c0,#e0897f)';
+  }
+  if (bondLabel) bondLabel.textContent = bondText(bond);
+  if (statBond) statBond.classList.toggle('warn', bond < .25);
   if (ecoFull) ecoFull.classList.toggle('hungry', n.hunger > .62);
   if (ecoJoy)  ecoJoy.classList.toggle('bored', n.joy < .32);
 }
@@ -1453,7 +1543,7 @@ function switchCat(id){
   laserEl.classList.remove('on');
   hint.textContent = defaultHint();
 
-  refreshMood();
+  refreshMood(); refreshEco();   // 四张状态卡立刻换成这只猫的数据
   const ctr = stageCenter();
   setTimeout(() => meow(rand(.88, 1.0)), 120);
   spawn('heart', ctr.x, ctr.y, { n: 3, max: 1.5 });
