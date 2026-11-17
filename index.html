@@ -172,6 +172,53 @@ header{
 }
 .ai-actions button:last-child{background:#fff;color:#8b7254}
 .ai-panel p{font-size:11.5px;line-height:1.55;color:#a08c76;margin:11px 0 0}
+
+/* ---------- 猫咪日志 ---------- */
+.log-mask{
+  position:fixed;inset:0;background:rgba(60,48,36,.32);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:19;
+}
+.log-mask.on{opacity:1;pointer-events:auto}
+.log-panel{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);
+  width:min(92vw,430px);max-height:min(80vh,660px);z-index:20;
+  display:flex;flex-direction:column;
+  padding:16px 18px 12px;border-radius:16px;
+  background:#fffdf9;border:1px solid rgba(190,168,136,.4);
+  box-shadow:0 24px 60px -18px rgba(120,92,60,.5);
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;
+}
+.log-panel.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.log-panel h3{margin:0 0 3px;font-size:14px;font-weight:500;color:#5a4c40}
+.log-sub{font-size:11.5px;color:#a08c76;margin-bottom:9px}
+.log-now{
+  flex:0 0 auto;padding:10px 12px;border-radius:11px;
+  background:linear-gradient(150deg,#fff6e9,#fdf1e2);
+  border:1px solid rgba(214,176,124,.28);
+}
+.now-title{font-size:11px;letter-spacing:.08em;color:#b08a5e;margin-bottom:4px}
+.now-text{font-size:13px;line-height:1.6;color:#6b5744}
+.log-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.log-stats span{
+  font-size:11px;color:#8b7254;background:#fff;
+  border:1px solid rgba(190,168,136,.32);padding:2px 7px;border-radius:999px;
+}
+.log-actions{display:flex;gap:8px;margin:10px 0 6px}
+.log-actions button{
+  flex:1;padding:8px;border-radius:9px;border:1px solid rgba(190,168,136,.45);
+  background:#f6ead9;color:#6b5744;font-size:12.5px;cursor:pointer;font-family:inherit;
+}
+.log-actions button:last-child{background:#fff;color:#8b7254}
+.log-list{flex:1;min-height:110px;overflow-y:auto;padding-right:4px}
+.log-item{padding:8px 0;border-bottom:1px dashed rgba(190,168,136,.3)}
+.log-item:last-child{border-bottom:none}
+.log-meta{display:flex;gap:7px;align-items:center;font-size:11px;color:#a08c76}
+.log-tag{
+  color:#8a6a45;background:#f4e4cd;border-radius:999px;
+  padding:1px 7px;font-size:10.5px;
+}
+.log-text{font-size:12.5px;line-height:1.55;color:#5a4c40;margin-top:3px}
+.log-empty{font-size:12.5px;color:#a08c76;line-height:1.7;text-align:center;padding:24px 8px}
 .stage img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:var(--op,50% 50%);
@@ -277,11 +324,19 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
 .mic{
   flex:0 0 auto;width:44px;height:44px;border-radius:50%;
   display:grid;place-items:center;cursor:pointer;
+  padding:0;line-height:1;
   border:1px solid rgba(196,168,132,.34);background:rgba(255,255,255,.72);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   color:#7a6857;transition:.24s cubic-bezier(.22,1,.36,1);
 }
-.mic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mic svg{
+  display:block;width:19px;height:19px;
+  /* 麦克风图形在 24x24 视框里视觉重心略偏下，上移半像素真正居中 */
+  transform:translateY(-1px);
+  stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+/* 喵语喇叭图形偏左半像素，居中微调 */
+#ttsBtn svg{transform:translateX(.5px)}
 .mic:hover{background:rgba(255,255,255,.95);transform:translateY(-1px)}
 .mic.listening{
   background:linear-gradient(160deg,#f1978a,#dc5f52);
@@ -479,6 +534,10 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
         <svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4 3.5 3.5 0 0 0-1 6.8V17a3 3 0 0 0 3 3h1"/><path d="M12 3a4 4 0 0 1 4 4 3.5 3.5 0 0 1 1 6.8V17a3 3 0 0 1-3 3h-1"/><path d="M12 3v17"/></svg>
         AI 大脑
       </button>
+      <button class="tool" id="logBtn" title="查看猫咪日志">
+        <svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg>
+        日志
+      </button>
     </div>
     <div class="say">
       <button class="mic" id="micBtn" title="点一下开始说话" aria-label="语音说话">
@@ -509,6 +568,22 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
     <button id="aiClear">清除</button>
   </div>
   <p>Key 只保存在你当前浏览器，不会写进网页或仓库。留空则自动使用内置台词库，离线也能玩。</p>
+</div>
+<div class="log-mask" id="logMask"></div>
+<div class="log-panel" id="logPanel">
+  <h3>猫咪日志</h3>
+  <div class="log-sub">此刻的状态与历史上的每一天 · 只存在这台设备</div>
+  <div class="log-now">
+    <div class="now-title">此刻 · 实时状态</div>
+    <div class="now-text" id="logNow">正在读取…</div>
+    <div class="log-stats" id="logStats"></div>
+  </div>
+  <div class="log-actions">
+    <button id="logSnap">记一笔</button>
+    <button id="logClear">清空历史</button>
+    <button id="logClose">关闭</button>
+  </div>
+  <div class="log-list" id="logList"></div>
 </div>
 <canvas id="fx"></canvas>
 <div class="laser" id="laser"><div class="t"></div></div>
@@ -1281,6 +1356,7 @@ stage.addEventListener('pointerup', e => {
   if (wasClick) poke(e.clientX, e.clientY);
   else if (S.petDist > 120){
     addMood(Math.min(9, S.petDist / 55));
+    logCat('pet', '摸了' + CATS[curCat].name + '很久，它发出呼噜声。', 15);
     if (Math.random() < .45) say(pick([
       '呼噜……呼噜……（整只猫都在震）',
       '（翻身躺倒，露出肚皮）再来。',
@@ -1292,9 +1368,11 @@ stage.addEventListener('pointerup', e => {
 stage.addEventListener('pointercancel', () => { S.petting = false; purrStop(); ptrDown = null; stage.style.transition = ''; });
 
 function poke(x, y){
+  const wasSleeping = S.sleeping;
   S.lastTouch = performance.now();
   S.sleeping = false;
   S.petHoldUntil = 0;
+  logCat('pet', wasSleeping ? '戳了它一下，它醒了。' : '戳了它一下。', 12);
   addMood(1);
   meow(rand(.94, 1.12));
   spawn('heart', x, y, { n: 2, max: 1.2 });
@@ -1312,6 +1390,7 @@ document.querySelectorAll('.tool').forEach(btn => {
   btn.addEventListener('click', () => {
     ac();
     const t = btn.dataset.tool;
+    if (!t) return;   // 喂食/喵语/AI/日志这类功能按钮不参与玩具切换
     const next = S.tool === t ? 'none' : t;
     S.tool = next;
     document.querySelectorAll('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === next));
@@ -1331,7 +1410,11 @@ document.querySelectorAll('.tool').forEach(btn => {
     } else {
       hint.textContent = defaultHint();
     }
-    if (next !== 'none') S.sleeping = false;
+    if (next !== 'none'){
+      S.sleeping = false;
+      const toolName = { feather:'逗猫棒', yarn:'毛线球', laser:'激光笔' }[next] || next;
+      logCat('play', '拿起' + toolName + '，开始逗它玩。', 20);
+    }
   });
 });
 
@@ -1341,6 +1424,7 @@ document.querySelectorAll('.tool').forEach(btn => {
 function switchCat(id){
   if (id === curCat || !imgs[id]) return;
   interruptLife();
+  const oldId = curCat;
   const from = document.querySelector(`.cat-set[data-cat="${curCat}"]`);
   const to   = document.querySelector(`.cat-set[data-cat="${id}"]`);
 
@@ -1359,6 +1443,7 @@ function switchCat(id){
   applyPose();
 
   const c = CATS[curCat];
+  logCat('system', '你从' + CATS[oldId].name + '换到了' + c.name + '。');
   $('#catName').innerHTML = c.name + '<small id="catSub">' + c.sub + '</small>';
   document.querySelectorAll('.sw').forEach(b => b.classList.toggle('on', b.dataset.cat === curCat));
 
@@ -1681,6 +1766,7 @@ function feedCat(){
   S.feedAnimUntil = now + 1500;
 
   const full = 1 - n.hunger;
+  let feedLogText = '';
   // 投喂动画：猫粮从碗上方落下
   const c = stageCenter();
   const bx = c.x, by = Math.min(c.y + c.r*.62, innerHeight - 96);
@@ -1695,6 +1781,7 @@ function feedCat(){
     const line = pick(FOOD_LINES_FULL);
     say(line, 3000);
     meowSequence(line, 'grumpy');
+    feedLogText = '给它倒粮，它吃饱了不想再吃：' + line;
     hint.textContent = '它吃饱了，不想再吃了';
   } else {
     // 正饿着：大口吃，饥饿骤降、亲近与兴致回升
@@ -1709,8 +1796,10 @@ function feedCat(){
     const line = pick(wasHungry ? FOOD_LINES_HUNGRY : ['（慢慢吃着，偶尔看你一眼）','喵。','（吃完舔了舔嘴）']);
     say(line, 3400);
     meowSequence(line, wasHungry ? 'happy' : 'calm');
+    feedLogText = (wasHungry ? '它饿坏了，大口吃着：' : '它慢慢吃了起来：') + line;
     hint.textContent = wasHungry ? '它饿坏了，吃得很香' : '它吃得很满足';
   }
+  logCat('feed', feedLogText);
   S.lastFeed[curCat] = Date.now();
   markMemory('feed'); personaDrift('feed');
   begTipHide();
@@ -1728,6 +1817,7 @@ function submitSay(rawText){
   if (!text) return;
   ac();
   interruptLife();
+  logCat('talk', '你对' + CATS[curCat].name + '说：「' + text + '」');
   sayInput.value = '';
   S.lastTouch = performance.now();
   S.sleeping = false;
@@ -1746,6 +1836,7 @@ function submitSay(rawText){
 
   const finish = (line, ai) => {
     say(line, 4200);
+    logCat('reply', CATS[curCat].name + '回应（' + ((ai && ai.emotion) || guessEmotion(line)) + '）：「' + line + '」');
     const emo = (ai && ai.emotion) || guessEmotion(line);
     speakCat(line, emo);
     const c = stageCenter();
@@ -2099,6 +2190,119 @@ function personaDrift(kind){
   if (kind === 'play') p.energetic = clamp(p.energetic + .004, 0, 1);
   p.mood = lerp(p.mood, S.moods[curCat] / 100, .02);
 }
+/* =========================================================
+   猫咪日志 —— 实时状态 + 历史状态，全部写成看得懂的文字
+   ---------------------------------------------------------
+   每次互动、状态明显变化、每隔两分钟都会记一笔，存本机 localStorage。
+   点底部「日志」可以随时翻看；不联网、不调用 AI。
+   ========================================================= */
+const CAT_LOG_KEY = 'catpet.log.v1', CAT_LOG_MAX = 260;
+let CAT_LOG = [], lastLogAt = {};
+const logBtn = $('#logBtn'), logPanel = $('#logPanel'), logMask = $('#logMask');
+const logNowEl = $('#logNow'), logStatsEl = $('#logStats'), logListEl = $('#logList');
+const POSE_TEXT = {
+  sit:'蹲坐着', belly:'翻着肚皮躺着', loaf:'趴成一只猫饼', meow:'仰头喵了一声',
+  crouch:'压低身子准备扑', stretch:'伸了个懒腰', doze:'眯着眼打盹',
+  glance:'东张西望', walk:'来回踱步', sleep:'睡着了', eat:'低头吃东西',
+};
+function poseText(p){ return POSE_TEXT[p] || '安静地待着'; }
+/* 把此刻的状态翻译成一句人话 */
+function stateWords(){
+  const n = S.needs[curCat], m = S.moods[curCat];
+  const full = !n ? '状态未知'
+    : n.hunger > .72 ? '饿得不行' : n.hunger > .45 ? '有点饿了' : '肚子饱饱的';
+  const joy  = !n ? '' : n.joy > .75 ? '兴致很高' : n.joy > .35 ? '还有点玩心' : '已经玩腻了';
+  const bond = !n ? '' : n.bond > .7 ? '很黏你' : n.bond > .35 ? '愿意靠近你' : '想自己待着';
+  const act  = S.sleeping ? '正在睡觉' : S.eating ? '正在吃东西' : poseText(S.shownPose || S.pose);
+  return CATS[curCat].name + moodText(m) + '，' + full + '，' + joy + '，' + bond + '，' + act + '。';
+}
+function loadCatLog(){
+  try {
+    const d = JSON.parse(localStorage.getItem(CAT_LOG_KEY) || '[]');
+    if (Array.isArray(d)) CAT_LOG = d.filter(x => x && x.text && x.t).slice(0, CAT_LOG_MAX);
+  } catch(e){ CAT_LOG = []; }
+}
+function saveCatLog(){
+  try { localStorage.setItem(CAT_LOG_KEY, JSON.stringify(CAT_LOG.slice(0, CAT_LOG_MAX))); } catch(e){}
+}
+const LOG_TAG = {
+  talk:'你说', reply:'猫咪回应', feed:'喂食', beg:'讨食', play:'玩耍', pet:'抚摸',
+  rest:'休息', mood:'状态', day:'记忆', system:'系统'
+};
+/* 记一笔。noDupSec：同类事件在指定秒数内不重复记，避免刷屏。 */
+function logCat(type, text, noDupSec){
+  if (!text) return;
+  const now = Date.now();
+  if (noDupSec && lastLogAt[type] && now - lastLogAt[type] < noDupSec * 1000) return;
+  if (type === 'mood' && CAT_LOG[0] && CAT_LOG[0].type === 'mood' && CAT_LOG[0].text === text) return;
+  lastLogAt[type] = now;
+  const n = S.needs[curCat];
+  CAT_LOG.unshift({
+    t: now, cat: curCat, type, text: String(text),
+    mood: Math.round(S.moods[curCat] || 0),
+    hunger: n ? Math.round(n.hunger * 100) : 0,
+    joy: n ? Math.round(n.joy * 100) : 0,
+  });
+  if (CAT_LOG.length > CAT_LOG_MAX) CAT_LOG.length = CAT_LOG_MAX;
+  saveCatLog();
+  if (logPanel && logPanel.classList.contains('on')) renderCatLog();
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtLogTime(t){
+  const d = new Date(t), now = new Date();
+  const p = x => String(x).padStart(2, '0');
+  const hm = p(d.getHours()) + ':' + p(d.getMinutes());
+  if (dayKey(t) === dayKey(now)) return '今天 ' + hm;
+  if (dayKey(t) === dayKey(now.getTime() - 86400000)) return '昨天 ' + hm;
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + hm;
+}
+function renderCatLog(){
+  if (logNowEl) logNowEl.textContent = stateWords();
+  const n = S.needs[curCat];
+  if (logStatsEl) logStatsEl.innerHTML = n
+    ? ['心情 ' + Math.round(S.moods[curCat]), '饱食 ' + Math.round((1-n.hunger)*100) + '%',
+       '兴致 ' + Math.round(n.joy*100) + '%', '亲近 ' + Math.round(n.bond*100) + '%']
+        .map(x => '<span>' + x + '</span>').join('')
+    : '';
+  if (!logListEl) return;
+  if (!CAT_LOG.length){
+    logListEl.innerHTML = '<div class="log-empty">还没有记录。<br>跟猫咪玩一会儿，或点「记一笔」。</div>';
+    return;
+  }
+  logListEl.innerHTML = CAT_LOG.slice(0, 90).map(e => {
+    const name = CATS[e.cat] ? CATS[e.cat].name : '猫咪';
+    const tag = LOG_TAG[e.type] || '事件';
+    const sc = e.type === 'mood' ? '' : '　·　心情' + e.mood + ' / 饱食' + (100-e.hunger) + '%';
+    return '<div class="log-item"><div class="log-meta"><span class="log-tag">' + tag + '</span>' +
+      '<span>' + name + ' · ' + fmtLogTime(e.t) + '</span></div>' +
+      '<div class="log-text">' + escapeHtml(e.text) + sc + '</div></div>';
+  }).join('');
+}
+function logPanelOpen(on){
+  if (logPanel) logPanel.classList.toggle('on', on);
+  if (logMask) logMask.classList.toggle('on', on);
+  if (on) renderCatLog();
+}
+if (logBtn) logBtn.addEventListener('click', () => { ac(); logPanelOpen(!logPanel.classList.contains('on')); });
+if (logMask) logMask.addEventListener('click', () => logPanelOpen(false));
+const logCloseBtn = $('#logClose'), logSnapBtn = $('#logSnap'), logClearBtn = $('#logClear');
+if (logCloseBtn) logCloseBtn.addEventListener('click', () => logPanelOpen(false));
+if (logSnapBtn) logSnapBtn.addEventListener('click', () => logCat('mood', stateWords()));
+if (logClearBtn) logClearBtn.addEventListener('click', () => {
+  CAT_LOG = []; saveCatLog(); renderCatLog();
+  hint.textContent = '猫咪日志已清空';
+  setTimeout(() => { if (!V.on) hint.textContent = defaultHint(); }, 1800);
+});
+/* 每两分钟自动快照一次状态；和上一笔一样就跳过 */
+setInterval(() => {
+  if (document.hidden) return;
+  const text = stateWords();
+  if (CAT_LOG[0] && CAT_LOG[0].type === 'mood' && CAT_LOG[0].text === text) return;
+  logCat('mood', text);
+}, 120000);
+
 /* 跨天：把昨天的相处结算成"记忆"，并悄悄改动今天的状态基线 */
 function rollOverDay(){
   const today = dayKey();
@@ -2129,6 +2333,9 @@ function rollOverDay(){
   MEM.days = trimmed;
   MEM.day = today;
   todayRec();
+  logCat('day', y
+    ? '新的一天。它记得昨天：玩了' + (y.play||0) + '次，吃了' + (y.feed||0) + '次，聊了' + (y.talk||0) + '句，被摸了' + (y.pet||0) + '次。今天的状态已经悄悄变了。'
+    : '新的一天。昨天没有留下记录，它得重新观察你。');
 }
 const REDUCED = (() => {
   try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
@@ -2264,6 +2471,7 @@ function decideAuto(now, night){
   if (chosen.id === 'beg'){
     setTimeout(() => meowSequence('喵——饿了，碗是空的。', 'grumpy'), 100);
     begTipShow(pick(['喵……饿了。','（盯着你，又叫了一声）','碗是空的。你看一眼。']), 2600);
+    logCat('beg', CATS[curCat].name + '主动来找你要吃的：碗是空的。', 45);
     addMood(-1.2);
   }
   refreshEco();
@@ -2296,6 +2504,18 @@ function stepLife(dt, now){
   if (n.hunger > .72) S.moods[curCat] = clamp(S.moods[curCat] - dt * .28, 0, 100);
   /* 讨食提示到期收起 */
   if (S.begUntil && now > S.begUntil) begTipHide();
+  /* 状态越过明显阈值时，自动写一笔日志 */
+  const lf = S._logFlags || (S._logFlags = {});
+  if (n.hunger > .72 && !lf[curCat + '_hungry']){
+    lf[curCat + '_hungry'] = 1;
+    logCat('mood', CATS[curCat].name + '饿得不行了，开始找你要吃的。', 120);
+  }
+  if (n.hunger < .35) lf[curCat + '_hungry'] = 0;
+  if (n.joy < .28 && !lf[curCat + '_bored']){
+    lf[curCat + '_bored'] = 1;
+    logCat('mood', CATS[curCat].name + '玩腻了，不太想搭理你。', 120);
+  }
+  if (n.joy > .6) lf[curCat + '_bored'] = 0;
 
   /* 指针快速晃动 → 警觉，反应是连续的 */
   if (S.ptr.speed > 34 && now > L.alertUntil && !busy && Math.random() < .3){
@@ -2415,6 +2635,7 @@ function initLife(){
   S.life.visits = (mem && +mem.visits || 0) + 1;
   S.life.lastSeen = (mem && +mem.lastSeen) || 0;
   const away = S.life.lastSeen ? Date.now() - S.life.lastSeen : 0;
+  loadCatLog();                           // 先载入日志，跨天结算才能把「昨天」记进去
   rollOverDay();                          // 跨天结算：昨天怎么对它，今天就有变化
   Object.values(vid).forEach(vs => Object.values(vs).forEach(armVideo));
   refreshMood(); refreshEco();
@@ -2489,6 +2710,7 @@ function frame(now){
   const idle = now - S.lastTouch;
   if (!S.sleeping && idle > 45000 && S.tool === 'none' && !S.petting){
     S.sleeping = true;
+    logCat('rest', CATS[curCat].name + '没人理，自己睡着了。', 60);
     say(pick(['……（睡着了，尾巴尖还在动）', 'z z z']), 3000);
   }
   if (S.sleeping && Math.random() < dt * .8){
