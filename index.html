@@ -582,7 +582,47 @@ function ac(){
   if (AC.state === 'suspended') AC.resume();
   return AC;
 }
-function meow(pitch = 1){
+/* =========================================================
+   真实猫叫：Wikimedia Commons 实拍录音（CC0 / 公有领域，见 assets/audio/CREDITS.txt）。
+   启动时预解码成 AudioBuffer；播放用 playbackRate 变速变调 —— 真实质感、
+   段间有差异，且每次只叫 1~2 声，短促自然不冗长。
+   ========================================================= */
+let REAL_MEOWS = {}, meowLoadStarted = false;
+const MEOW_FILES = ['a','b','c','d','e','f'];
+function loadRealMeows(){
+  if (meowLoadStarted || typeof fetch !== 'function') return;
+  meowLoadStarted = true;
+  for (const k of MEOW_FILES){
+    fetch('assets/audio/meow-' + k + '.m4a')
+      .then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(ab => new Promise((res, rej) => {
+        const c = ac();
+        const p = c.decodeAudioData(ab, res, rej);
+        if (p && typeof p.then === 'function') p.then(res, rej);
+      }))
+      .then(buf => { REAL_MEOWS[k] = buf; })
+      .catch(() => {});
+  }
+}
+/* 播放一段真实猫叫；rate 同时改变音高和时长。返回实际时长（秒）。 */
+function playReal(key, rate, vol, when){
+  const buf = REAL_MEOWS[key];
+  if (!buf) return 0;
+  const c = ac(); if (!c || muted) return 0;
+  const t = c.currentTime + (when || 0);
+  const dur = buf.duration / rate;
+  const src = c.createBufferSource(), g = c.createGain();
+  src.buffer = buf; src.playbackRate.value = rate;
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + Math.min(.02, dur * .1));
+  g.gain.setValueAtTime(vol, t + Math.max(.02, dur - .06));
+  g.gain.linearRampToValueAtTime(.0001, t + dur);
+  src.connect(g); g.connect(c.destination);
+  try { src.start(t); } catch(e){ return 0; }
+  return dur;
+}
+/* 兜底：真实音频尚未解码完成时用轻量合成音顶一下，不打断手感。 */
+function meowSynth(pitch = 1){
   const c = ac(); if (!c || muted) return;
   const t = c.currentTime;
   const o = c.createOscillator(), g = c.createGain(), f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter();
@@ -602,67 +642,50 @@ function meow(pitch = 1){
   o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(c.destination);
   o.start(t); o.stop(t + .56);
 }
-/* 喵语：把文字的情绪与节奏映射成一串不同音高/时长/间隔的喵声。
-   全部现场合成，零素材、零网络、零费用 —— 用来替代生硬的人声 TTS。 */
+/* 单声喵（戳一下、扑一下这类即时反馈） */
+function meow(pitch = 1){
+  const keys = Object.keys(REAL_MEOWS);
+  if (!keys.length){ meowSynth(pitch); return; }
+  playReal(pick(keys), clamp(pitch, .8, 1.35), .85, 0);
+}
+/* 情绪 → 用哪几段真录音、语速、叫几声、间隔。
+   总时长约 1~1.6 秒；台词短时只叫一声。 */
 const MEOW_STYLE = {
-  happy:   { base:1.12, spread:.30, step:.13, dur:1.00, gap:.80 },
-  calm:    { base:1.00, spread:.18, step:.16, dur:1.05, gap:.95 },
-  curious: { base:1.06, spread:.36, step:.11, dur:.92, gap:.85 },
-  grumpy:  { base:.82,  spread:.20, step:.20, dur:.82, gap:1.20 },
-  sleepy:  { base:.74,  spread:.14, step:.24, dur:1.45, gap:1.30 },
+  happy:   { keys:['a','b','e'], rate:1.24, n:2, gap:.10, vol:.92 },
+  calm:    { keys:['a','b','d'], rate:1.16, n:2, gap:.11, vol:.88 },
+  curious: { keys:['b','c','e'], rate:1.22, n:2, gap:.09, vol:.88 },
+  grumpy:  { keys:['f','d','f'], rate:1.10, n:2, gap:.14, vol:.90 },
+  sleepy:  { keys:['f','e','d'], rate:.98,  n:1, gap:.14, vol:.82 },
 };
 function hashChar(ch){
   let h = 2166136261;
   const code = String(ch).codePointAt(0) || 0;
   h = Math.imul(h ^ (code & 255), 16777619);
   h = Math.imul(h ^ (code >> 8), 16777619);
-  return ((h >>> 0) % 1000) / 1000;   // 稳定的 0..1，同一段文字语调可复现
+  return ((h >>> 0) % 1000) / 1000;
 }
-function oneMeow(c, at, pitch, dur, vol){
-  const t = c.currentTime + at;
-  const o = c.createOscillator(), g = c.createGain(), f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter();
-  o.type = 'sawtooth';
-  f1.type='bandpass'; f1.frequency.value=980*pitch; f1.Q.value=2.4;
-  f2.type='bandpass'; f2.frequency.value=2350*pitch; f2.Q.value=3.2;
-  const base = 430*pitch;
-  o.frequency.setValueAtTime(base*.92, t);
-  o.frequency.exponentialRampToValueAtTime(base*2.15, t+.075*dur);
-  o.frequency.exponentialRampToValueAtTime(base*1.72, t+.20*dur);
-  o.frequency.exponentialRampToValueAtTime(base*.74, t+.48*dur);
-  g.gain.setValueAtTime(.0001, t);
-  g.gain.exponentialRampToValueAtTime(.18*vol, t+.045*dur);
-  g.gain.exponentialRampToValueAtTime(.10*vol, t+.22*dur);
-  g.gain.exponentialRampToValueAtTime(.0001, t+.52*dur);
-  const mix=c.createGain(); mix.gain.value=.55;
-  o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(c.destination);
-  o.start(t); o.stop(t+.56*dur);
-}
-/* 回应台词 → 一串喵。emotion 来自 AI 或本地文本推断。
-   句长决定音节数，标点决定停顿，字符 hash 决定音高 —— 听起来像"在说话"的猫。 */
+/* 台词 → 1~2 声真实猫叫。情绪挑样本与语速，字符哈希带来细微起伏。 */
 function meowSequence(raw, emotion){
-  const c = ac(); if (!c || muted || !ttsOn) return 0;
-  let text = String(raw || '').replace(/[（()）]/g,' ').replace(/[♪]/g,' ')
-    .replace(/[…—~]{2,}/g,' ').replace(/[，,]/g,' / ').replace(/[。！？!?；;]/g,' // ')
-    .replace(/\s+/g,' ').trim();
-  text = text.replace(/[zZ]\s*[zZ]/g,'');
-  const st = MEOW_STYLE[emotion] || MEOW_STYLE.calm;
-  const units = [];
-  for (const part of text.split('/')){
-    const seg = part.trim();
-    if (!seg){ units.push({ pause:true }); continue; }
-    const chars = [...seg].filter(ch => /[\u4e00-\u9fffA-Za-z0-9]/.test(ch)).slice(0, 9);
-    for (const ch of chars) units.push({ ch });
+  if (!ttsOn || muted) return 0;
+  const keys = Object.keys(REAL_MEOWS);
+  if (!keys.length){
+    // 音频还没到：两声合成音兜底，不打断对话节奏
+    const st0 = MEOW_STYLE[emotion] || MEOW_STYLE.calm;
+    meowSynth(st0.rate); setTimeout(() => meowSynth(st0.rate * 1.05), 240);
+    return .8;
   }
-  let at = .05, count = 0;
-  for (const u of units){
-    if (u.pause){ at += st.step * .9; continue; }
-    if (count >= 11) break;                       // 别喵太久
-    const h = hashChar(u.ch);
-    const pitch = clamp(st.base + (h-.5) * st.spread, .58, 1.7);
-    const dur = st.dur * (.82 + h*.4);
-    oneMeow(c, at, pitch, dur, .80);
-    at += dur * .5 + st.step * (.7 + h*.5);
-    count++;
+  const text = String(raw || '');
+  const st = MEOW_STYLE[emotion] || MEOW_STYLE.calm;
+  const usable = st.keys.filter(k => REAL_MEOWS[k]);
+  if (!usable.length) return 0;
+  const h = hashChar(text.slice(0, 5) + emotion);
+  let n = st.n;
+  if (text.replace(/[\s，。！？,.!?]/g, '').length <= 4) n = 1;
+  let at = .03;
+  for (let i = 0; i < n; i++){
+    const k = usable[(Math.floor(h * 97) + i) % usable.length];
+    const rate = st.rate * (.94 + hashChar(text.charAt(i * 2)) * .14);
+    at += playReal(k, rate, st.vol, at) + st.gap;
   }
   return at;
 }
@@ -2519,6 +2542,7 @@ function frame(now){
    启动
    ========================================================= */
 function boot(){
+  loadRealMeows();   // 真实猫叫后台预解码，不阻塞首屏
   /* 不再无条件把 sit 图点亮：图还没到就给 opacity 会画出破图占位。
      applyPose 会在图片就绪时显示，没就绪就等 load/decode 回调自动补上。 */
   applyPose();
