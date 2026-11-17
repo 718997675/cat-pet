@@ -51,6 +51,26 @@ header{
   background:linear-gradient(90deg,#f0c48c,#e0913f);
   transition:width .6s cubic-bezier(.22,1,.36,1),background .5s;
 }
+/* 生态状态：饱食 / 兴致 */
+.eco{display:flex;align-items:center;gap:10px;margin-left:6px}
+.eco-item{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#9c8b7a;letter-spacing:.03em;white-space:nowrap}
+.eco-item svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.eco-bar{width:40px;height:4px;border-radius:3px;background:rgba(180,160,135,.22);overflow:hidden}
+.eco-bar>i{display:block;height:100%;border-radius:3px;transition:width .7s cubic-bezier(.22,1,.36,1),background .5s}
+.eco-item.hungry{color:#c9763f}
+.eco-item.bored{color:#9a86ad}
+/* 讨食 / 喂食提示 */
+.beg-tip{
+  position:absolute;left:50%;top:9%;z-index:4;transform:translate(-50%,-6px);
+  padding:6px 13px;border-radius:999px;white-space:nowrap;pointer-events:none;
+  font-size:12px;letter-spacing:.03em;color:#a35f2f;
+  background:rgba(255,247,232,.94);border:1px solid rgba(214,150,80,.45);
+  box-shadow:0 6px 16px -10px rgba(190,120,60,.7);
+  opacity:0;transition:opacity .4s,transform .4s;
+}
+.beg-tip.on{opacity:1;transform:translate(-50%,0)}
+.feed-flash{animation:feedFlash .6s ease}
+@keyframes feedFlash{0%{background:rgba(255,255,255,.62)}35%{background:rgba(255,224,178,.95);transform:translateY(-2px)}100%{background:rgba(255,255,255,.62)}}
 
 /* ---------- 猫台 ---------- */
 .main{flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding:6px 16px}
@@ -332,6 +352,14 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
 }
 /* 矮屏（横屏、小屏手机、浏览器带大地址栏）：收一收上下留白，
    否则猫会顶到顶栏上，底下输入框也会被挤出视口 */
+@media (max-width:720px){
+  .eco{gap:7px;margin-left:2px}
+  .eco-bar{width:26px}
+  .eco-item svg{width:12px;height:12px}
+}
+@media (max-width:560px){
+  .eco{display:none}   /* 窄屏优先保证昵称/切换/心情不换行 */
+}
 @media (max-height:640px){
   header{padding:calc(8px + env(safe-area-inset-top)) 16px 0;gap:10px}
   .name{font-size:15px}
@@ -366,6 +394,16 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
       <button class="sw on" data-cat="orange">橘子</button>
       <button class="sw" data-cat="ragdoll">团子</button>
       <button class="sw" data-cat="tabby">阿狸</button>
+    </div>
+    <div class="eco" id="eco">
+      <span class="eco-item" id="ecoFull" title="饱食度：越低越饿">
+        <svg viewBox="0 0 24 24"><path d="M4 12h16l-1.8 6.4a2 2 0 0 1-1.9 1.4H7.7a2 2 0 0 1-1.9-1.4L4 12z"/><path d="M9 9V6M12 9V5M15 9V6"/></svg>
+        <span class="eco-bar"><i id="fullFill"></i></span>
+      </span>
+      <span class="eco-item" id="ecoJoy" title="兴致：越低越玩腻了">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3l5 2-2 5"/></svg>
+        <span class="eco-bar"><i id="joyFill"></i></span>
+      </span>
     </div>
     <div class="mood">
       <span class="mood-label" id="moodLabel">心情不错</span>
@@ -403,6 +441,7 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
           <video class="vid" data-pose="sit"   src="assets/video/idle-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
           <video class="vid" data-pose="belly" src="assets/video/belly-tabby.mp4" muted autoplay playsinline webkit-playsinline loop preload="metadata"></video>
         </div>
+        <div class="beg-tip" id="begTip">喵……饿了，碗是空的。</div>
         <div class="life-tip" id="lifeTip"></div>
       </div>
       <div class="wake-tip" id="wakeTip">轻点一下画面，它就会动起来</div>
@@ -428,9 +467,13 @@ footer{flex:0 0 auto;padding:0 16px calc(18px + env(safe-area-inset-bottom))}
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M12 2.6v3M12 18.4v3M2.6 12h3M18.4 12h3M5.4 5.4l2.1 2.1M16.5 16.5l2.1 2.1M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1"/></svg>
         激光笔
       </button>
-      <button class="tool on" id="ttsBtn" title="开关猫的朗读">
+      <button class="tool" id="feedBtn" title="给它倒一碗猫粮">
+        <svg viewBox="0 0 24 24"><path d="M4 12h16l-1.8 6.4a2 2 0 0 1-1.9 1.4H7.7a2 2 0 0 1-1.9-1.4L4 12z"/><path d="M12 12c2.6 0 4.6-1.6 4.6-3.5S14.6 5 12 5s-4.6 1.6-4.6 3.5S9.4 12 12 12z"/></svg>
+        喂食
+      </button>
+      <button class="tool on" id="ttsBtn" title="开关猫的喵语">
         <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
-        猫嗓门
+        喵语
       </button>
       <button class="tool" id="aiBtn" title="设置 AI 大脑">
         <svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4 3.5 3.5 0 0 0-1 6.8V17a3 3 0 0 0 3 3h1"/><path d="M12 3a4 4 0 0 1 4 4 3.5 3.5 0 0 1 1 6.8V17a3 3 0 0 1-3 3h-1"/><path d="M12 3v17"/></svg>
@@ -486,6 +529,12 @@ const bubble  = $('#bubble');
 const hint    = $('#hint');
 const moodFill= $('#moodFill');
 const moodLabel=$('#moodLabel');
+const fullFill = $('#fullFill');
+const joyFill  = $('#joyFill');
+const ecoFull  = $('#ecoFull');
+const ecoJoy   = $('#ecoJoy');
+const begTip   = $('#begTip');
+const feedBtn  = $('#feedBtn');
 const sayInput= $('#sayInput');
 const laserEl = $('#laser');
 const canvas  = $('#fx');
@@ -517,6 +566,11 @@ const S = {
   follow: { x: 0, y: 0, tx: 0, ty: 0 },
   lookedAt: 0,
   wasSleeping: false,
+  eating: false,        // 正在吃粮
+  eatUntil: 0,
+  feedAnimUntil: 0,     // 投喂动画持续到
+  begUntil: 0,          // 讨食提示持续到
+  lastFeed: {},         // 每只猫上次喂食时间戳
 };
 
 /* =========================================================
@@ -547,6 +601,70 @@ function meow(pitch = 1){
   const mix = c.createGain(); mix.gain.value = .55;
   o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(c.destination);
   o.start(t); o.stop(t + .56);
+}
+/* 喵语：把文字的情绪与节奏映射成一串不同音高/时长/间隔的喵声。
+   全部现场合成，零素材、零网络、零费用 —— 用来替代生硬的人声 TTS。 */
+const MEOW_STYLE = {
+  happy:   { base:1.12, spread:.30, step:.13, dur:1.00, gap:.80 },
+  calm:    { base:1.00, spread:.18, step:.16, dur:1.05, gap:.95 },
+  curious: { base:1.06, spread:.36, step:.11, dur:.92, gap:.85 },
+  grumpy:  { base:.82,  spread:.20, step:.20, dur:.82, gap:1.20 },
+  sleepy:  { base:.74,  spread:.14, step:.24, dur:1.45, gap:1.30 },
+};
+function hashChar(ch){
+  let h = 2166136261;
+  const code = String(ch).codePointAt(0) || 0;
+  h = Math.imul(h ^ (code & 255), 16777619);
+  h = Math.imul(h ^ (code >> 8), 16777619);
+  return ((h >>> 0) % 1000) / 1000;   // 稳定的 0..1，同一段文字语调可复现
+}
+function oneMeow(c, at, pitch, dur, vol){
+  const t = c.currentTime + at;
+  const o = c.createOscillator(), g = c.createGain(), f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter();
+  o.type = 'sawtooth';
+  f1.type='bandpass'; f1.frequency.value=980*pitch; f1.Q.value=2.4;
+  f2.type='bandpass'; f2.frequency.value=2350*pitch; f2.Q.value=3.2;
+  const base = 430*pitch;
+  o.frequency.setValueAtTime(base*.92, t);
+  o.frequency.exponentialRampToValueAtTime(base*2.15, t+.075*dur);
+  o.frequency.exponentialRampToValueAtTime(base*1.72, t+.20*dur);
+  o.frequency.exponentialRampToValueAtTime(base*.74, t+.48*dur);
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(.18*vol, t+.045*dur);
+  g.gain.exponentialRampToValueAtTime(.10*vol, t+.22*dur);
+  g.gain.exponentialRampToValueAtTime(.0001, t+.52*dur);
+  const mix=c.createGain(); mix.gain.value=.55;
+  o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t+.56*dur);
+}
+/* 回应台词 → 一串喵。emotion 来自 AI 或本地文本推断。
+   句长决定音节数，标点决定停顿，字符 hash 决定音高 —— 听起来像"在说话"的猫。 */
+function meowSequence(raw, emotion){
+  const c = ac(); if (!c || muted || !ttsOn) return 0;
+  let text = String(raw || '').replace(/[（()）]/g,' ').replace(/[♪]/g,' ')
+    .replace(/[…—~]{2,}/g,' ').replace(/[，,]/g,' / ').replace(/[。！？!?；;]/g,' // ')
+    .replace(/\s+/g,' ').trim();
+  text = text.replace(/[zZ]\s*[zZ]/g,'');
+  const st = MEOW_STYLE[emotion] || MEOW_STYLE.calm;
+  const units = [];
+  for (const part of text.split('/')){
+    const seg = part.trim();
+    if (!seg){ units.push({ pause:true }); continue; }
+    const chars = [...seg].filter(ch => /[\u4e00-\u9fffA-Za-z0-9]/.test(ch)).slice(0, 9);
+    for (const ch of chars) units.push({ ch });
+  }
+  let at = .05, count = 0;
+  for (const u of units){
+    if (u.pause){ at += st.step * .9; continue; }
+    if (count >= 11) break;                       // 别喵太久
+    const h = hashChar(u.ch);
+    const pitch = clamp(st.base + (h-.5) * st.spread, .58, 1.7);
+    const dur = st.dur * (.82 + h*.4);
+    oneMeow(c, at, pitch, dur, .80);
+    at += dur * .5 + st.step * (.7 + h*.5);
+    count++;
+  }
+  return at;
 }
 function purrStart(){
   if (purrNodes) return;
@@ -594,6 +712,21 @@ function thud(v = .12){
   g.gain.exponentialRampToValueAtTime(.0001, t + .13);
   o.connect(g); g.connect(c.destination);
   o.start(t); o.stop(t + .14);
+}
+function crunch(){
+  const c = ac(); if (!c || muted) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 3; i++){
+    const at = t + i * .085;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(rand(520, 760), at);
+    o.frequency.exponentialRampToValueAtTime(rand(180, 260), at + .035);
+    g.gain.setValueAtTime(.035, at);
+    g.gain.exponentialRampToValueAtTime(.0001, at + .045);
+    o.connect(g); g.connect(c.destination);
+    o.start(at); o.stop(at + .05);
+  }
 }
 function blip(freq = 1400, v = .05){
   const c = ac(); if (!c || muted) return;
@@ -695,6 +828,12 @@ function drawParticles(dt){
       ctx.font = '600 16px serif';
       ctx.textAlign = 'center';
       ctx.fillText('♪', 0, 0);
+    } else if (p.type === 'food'){
+      const s = p.size * (1 - t*.18);
+      ctx.fillStyle = 'rgba(150,102,58,.95)';
+      ctx.beginPath(); ctx.ellipse(0,0,s*1.25,s*.8,p.rot,0,7); ctx.fill();
+      ctx.fillStyle = 'rgba(196,146,92,.75)';
+      ctx.beginPath(); ctx.ellipse(-s*.28,-s*.2,s*.45,s*.3,p.rot,0,7); ctx.fill();
     }
     ctx.restore();
   }
@@ -979,6 +1118,12 @@ function replyTo(text){
   const t = (text || '').trim();
   if (!t) return '';
   const nm = CATS[curCat].name;
+  const N = S.needs[curCat];
+  /* 生态优先：真饿了、真玩腻了，本地就能给出真实反应，不花钱调 AI */
+  if (N && N.hunger > .6 && /饿|吃|饭|喂|猫粮|想吃/i.test(t))
+    return pick(['饿了！碗都空半天了，你才想起来？','喵——要吃。现在。','（用头拱你的手，直奔碗的方向）']);
+  if (N && N.joy < .3 && /玩|陪|逗|来|闹/i.test(t))
+    return pick(['（尾巴甩了一下）你自己玩吧。','喵。（闭上眼，不想动）','刚才玩太久了。让我静静。']);
   if (/你叫什么|你的名字|名字叫|叫什么名字/i.test(t)) return `我叫${nm}。你取的，这么快就忘了？`;
   for (const L of LINES) if (L.k.test(t)) return pick(L.a);
   const sp = CATS[curCat] && CATS[curCat].special;
@@ -1009,6 +1154,36 @@ function refreshMood(){
 function addMood(n){
   S.moods[curCat] = clamp(S.moods[curCat] + n, 0, 100);
   refreshMood();
+}
+/* 饱食 / 兴致两条状态条：把"生态"直观地摆给主人看 */
+function refreshEco(){
+  const n = S.needs[curCat];
+  if (!n) return;
+  const full = clamp(1 - n.hunger, 0, 1);
+  if (fullFill){
+    fullFill.style.width = (full*100).toFixed(0) + '%';
+    fullFill.style.background = full < .28
+      ? 'linear-gradient(90deg,#e6a869,#d2703a)'
+      : 'linear-gradient(90deg,#f0c48c,#dca05a)';
+  }
+  if (joyFill){
+    joyFill.style.width = (clamp(n.joy,0,1)*100).toFixed(0) + '%';
+    joyFill.style.background = n.joy < .3
+      ? 'linear-gradient(90deg,#c0b3cc,#9a86ad)'
+      : 'linear-gradient(90deg,#a8cf9a,#7cae78)';
+  }
+  if (ecoFull) ecoFull.classList.toggle('hungry', n.hunger > .62);
+  if (ecoJoy)  ecoJoy.classList.toggle('bored', n.joy < .32);
+}
+function begTipShow(text, ms = 2600){
+  if (!begTip) return;
+  begTip.textContent = text;
+  begTip.classList.add('on');
+  S.begUntil = performance.now() + ms;
+}
+function begTipHide(){
+  if (begTip) begTip.classList.remove('on');
+  S.begUntil = 0;
 }
 
 /* =========================================================
@@ -1056,6 +1231,9 @@ stage.addEventListener('pointermove', e => {
     S.purredHard = true;
     addMood(6);
     spawn('note', e.clientX, e.clientY - 30, { n: 2 });
+    markMemory('pet'); personaDrift('pet');
+    const pn = S.needs[curCat];
+    if (pn) { pn.joy = clamp(pn.joy - .06, 0, 1); pn.bond = clamp(pn.bond + .03, 0, 1); refreshEco(); }
   }
 });
 stage.addEventListener('pointerup', e => {
@@ -1348,24 +1526,62 @@ if (aiClear) aiClear.addEventListener('click', () => {
 });
 
 const AI_SYS = `你是一只真实的小猫，名字叫{NAME}，{SUB}。主人刚对你说了一句话。
+你会饿、会困、会玩腻、会记仇也会撒娇 —— 严格按【状态】反应，别永远热情。
 只输出一个 JSON 对象，不要解释、不要代码块，字段如下：
 {"line":"你要说的话，一句，口语、有猫的性格，可用括号写动作，不超过40字",
  "emotion":"happy|calm|curious|grumpy|sleepy 之一",
- "action":"glance|stretch|belly|meow|crouch|loaf|doze|none 之一，表示你听完想做的动作",
+ "action":"glance|stretch|belly|meow|crouch|loaf|doze|ignore|beg|none 之一",
  "mood":-3到3的整数，表示心情变化}
+规则：很饿时更可能讨食(beg)或没耐心；玩腻时可能不理(ignore)；困了就想睡(doze)。
 不要复述主人的话，不要客套，不要说自己是 AI。`;
 
 function aiContext(text){
   const n = S.needs ? S.needs[curCat] : null;
   const st = ['心情' + Math.round(S.moods[curCat]) + '/100'];
   if (S.life && S.life.action) st.push('刚才在' + S.life.action);
-  if (n) st.push('困意' + Math.round(n.sleep*100) + '、亲密度' + Math.round(n.bond*100));
+  if (n){
+    st.push('困意' + Math.round(n.sleep*100) + '、亲密度' + Math.round(n.bond*100));
+    st.push('饥饿' + Math.round(n.hunger*100) + '、兴致' + Math.round(n.joy*100));
+  }
+  if (MEM.yesterday){
+    const y = MEM.yesterday;
+    st.push('昨天陪玩' + (y.play||0) + '次、喂' + (y.feed||0) + '次、聊' + (y.talk||0) + '句');
+  }
   return '【状态】' + st.join('，') + '。\n【主人说】' + text;
+}
+const AI_CACHE_KEY = 'cat-pet-ai-cache-v1';
+const AI_CACHE = (() => { try { return JSON.parse(localStorage.getItem(AI_CACHE_KEY) || '{}'); } catch(e){ return {}; } })();
+const AI_DAILY_CAP = 24;                      // 每天最多 24 次云调用，超了用本地台词库
+function aiBucket(){
+  const n = S.needs[curCat];
+  if (!n) return 'base';
+  return [ n.hunger > .5 ? 1 : 0, n.joy < .4 ? 1 : 0, n.sleep > .6 ? 1 : 0,
+           S.moods[curCat] < 35 ? 1 : 0 ].join('');
+}
+function aiCacheGet(key){
+  const v = AI_CACHE[key];
+  if (!v || !v.t || Date.now() - v.t > 6 * 3600 * 1000) return null;
+  return v.r || null;
+}
+function aiCacheSet(key, r){
+  AI_CACHE[key] = { t: Date.now(), r };
+  const ks = Object.keys(AI_CACHE);
+  if (ks.length > 120){ ks.sort((a,b) => AI_CACHE[a].t - AI_CACHE[b].t); delete AI_CACHE[ks[0]]; }
+  try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(AI_CACHE)); } catch(e){}
+}
+function aiDailyUsed(){
+  const k = dayKey() + ':' + AI_DAILY_CAP;
+  return +(AI_CACHE[k] || 0);
 }
 async function aiReply(text){
   if (!aiReady() || AI.busy || typeof fetch !== 'function') return null;
   const now = Date.now();
-  if (now - AI.lastCall < 900) return null;
+  if (now - AI.lastCall < 700) return null;
+  /* 低成本三道闸：①相同问法+相近状态命中缓存 ②每天限额 ③本地台词库先行 */
+  const cacheKey = curCat + '|' + String(text).replace(/[\s，。！？、,.!?]/g,'').slice(0,10) + '|' + aiBucket();
+  const hit = aiCacheGet(cacheKey);
+  if (hit) return Object.assign({}, hit, { cached:true });
+  if (aiDailyUsed() >= AI_DAILY_CAP) return null;
   AI.lastCall = now; AI.busy = true;
   const c = AI.cfg;
   const body = {
@@ -1395,14 +1611,78 @@ async function aiReply(text){
     if (!raw) throw new Error('empty');
     const j = JSON.parse(String(raw).replace(/^```json\s*|\s*```$/g,'').trim());
     if (!j || typeof j.line !== 'string' || !j.line.trim()) throw new Error('bad json');
-    return {
+    const result = {
       line: j.line.trim().slice(0,80),
       emotion: j.emotion, action: j.action,
       mood: clamp(parseInt(j.mood,10) || 0, -3, 3),
     };
+    aiCacheSet(cacheKey, result);
+    const dk = dayKey() + ':' + AI_DAILY_CAP;
+    AI_CACHE[dk] = aiDailyUsed() + 1;
+    try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(AI_CACHE)); } catch(e){}
+    return result;
   } catch (e) { return null; }
   finally { clearTimeout(timer); AI.busy = false; }
 }
+
+/* =========================================================
+   喂食 —— 生态核心交互
+   ========================================================= */
+const FOOD_LINES_HUNGRY = [
+  '（埋头苦吃，尾巴摇得飞快）', '喵呜——终于开饭了！',
+  '（吃得太急，噎了一下，又低头继续）', '这个好吃。你今天表现不错。',
+];
+const FOOD_LINES_FULL = [
+  '（闻了闻，扭过头去）吃不下。', '喵。（用爪子把碗盖住）',
+  '（舔了一口就走开了）留着吧。', '刚吃过。你当我没家吗？',
+];
+function feedCat(){
+  ac();
+  const n = S.needs[curCat];
+  if (!n) return;
+  const now = performance.now();
+  S.lastTouch = now; S.sleeping = false;
+  interruptLife();
+  S.feedAnimUntil = now + 1500;
+
+  const full = 1 - n.hunger;
+  // 投喂动画：猫粮从碗上方落下
+  const c = stageCenter();
+  const bx = c.x, by = Math.min(c.y + c.r*.62, innerHeight - 96);
+  spawn('food', bx, by - 26, { n: 12, max: 1.35, size: rand(5,8), vx: 0, vy: rand(6,26), g: 62 });
+  feedBtn.classList.remove('feed-flash'); void feedBtn.offsetWidth; feedBtn.classList.add('feed-flash');
+
+  if (full > .82){
+    // 吃饱了还硬喂：拒食，兴致下降
+    n.hunger = clamp(n.hunger + .06, 0, 1);
+    n.joy = clamp(n.joy - .07, 0, 1);
+    addMood(-2);
+    const line = pick(FOOD_LINES_FULL);
+    say(line, 3000);
+    meowSequence(line, 'grumpy');
+    hint.textContent = '它吃饱了，不想再吃了';
+  } else {
+    // 正饿着：大口吃，饥饿骤降、亲近与兴致回升
+    const wasHungry = n.hunger > .48;
+    n.hunger = clamp(n.hunger - (wasHungry ? .64 : .32), 0, 1);
+    n.joy = clamp(n.joy + .12, 0, 1);
+    n.bond = clamp(n.bond + (wasHungry ? .10 : .04), 0, 1);
+    addMood(wasHungry ? 9 : 4);
+    S.eating = true; S.eatUntil = now + 1600;
+    setTimeout(crunch, 160);
+    setTimeout(crunch, 620);
+    const line = pick(wasHungry ? FOOD_LINES_HUNGRY : ['（慢慢吃着，偶尔看你一眼）','喵。','（吃完舔了舔嘴）']);
+    say(line, 3400);
+    meowSequence(line, wasHungry ? 'happy' : 'calm');
+    hint.textContent = wasHungry ? '它饿坏了，吃得很香' : '它吃得很满足';
+  }
+  S.lastFeed[curCat] = Date.now();
+  markMemory('feed'); personaDrift('feed');
+  begTipHide();
+  refreshEco();
+  setTimeout(() => { if (!V.on) hint.textContent = defaultHint(); }, 2300);
+}
+if (feedBtn) feedBtn.addEventListener('click', feedCat);
 
 /* =========================================================
    说话
@@ -1417,14 +1697,22 @@ function submitSay(rawText){
   S.lastTouch = performance.now();
   S.sleeping = false;
   S.talkUntil = performance.now() + 1700;
-  const pitch = rand(.95, 1.1);
-  setTimeout(() => meow(pitch), 90);
-  addMood(1);
+  const N = S.needs[curCat];
+  setTimeout(() => meow(rand(.95, 1.1) * (N && N.joy < .3 ? .88 : 1)), 90);
+  addMood(N && N.joy < .3 ? 0 : 1);
   if (/笨|丑|讨厌|滚|烦|臭/i.test(text)) addMood(-6);
+  /* 反复说同样的话，猫会腻 —— 兴致衰减；换话题或喂食才会回升 */
+  const sig = text.replace(/[\s，。！？、,.!?]/g,'').slice(0,8);
+  if (S.lastTalkSig === sig) N.joy = clamp(N.joy - .09, 0, 1);
+  else N.joy = clamp(N.joy - .02, 0, 1);
+  S.lastTalkSig = sig;
+  refreshEco();
+  markMemory('talk'); personaDrift('talk');
 
   const finish = (line, ai) => {
     say(line, 4200);
-    speakCat(line);
+    const emo = (ai && ai.emotion) || guessEmotion(line);
+    speakCat(line, emo);
     const c = stageCenter();
     spawn('note', c.x + rand(-30,30), c.y - c.r*.15, { n: 2 });
     if (ai){
@@ -1491,41 +1779,31 @@ function drawWave(level){
 }
 function resetWave(){ waveBars.forEach(b => b.style.height = '3px'); }
 
-/* 猫把台词念出来：去掉括号符号和省略号，音调拔高一点，像小猫在说话 */
-function speakCat(raw){
-  if (!ttsOn || !('speechSynthesis' in window)) return;
-  const text = String(raw || '')
-    .replace(/[（()）]/g, '')
-    .replace(/[zZ] ?[zZ] ?[zZ]/g, '呼噜')
-    .replace(/♪/g, '')
-    .replace(/[…—~]{2,}/g, '，')
-    .replace(/ +/g, ' ').trim();
-  if (!text) return;
-  try {
-    const sy = window.speechSynthesis;
-    sy.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-CN'; u.pitch = 1.45; u.rate = 1.06; u.volume = .9;
-    const vs = sy.getVoices() || [];
-    const zh = vs.find(v => /zh[-_]?CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang));
-    if (zh) u.voice = zh;
-    sy.speak(u);
-  } catch(e){}
+/* 猫的"说话"= 一串有情绪的喵声，而不是生硬的人声朗读。 */
+function speakCat(raw, emotion){
+  if (!ttsOn) return;
+  meowSequence(raw, emotion);
+}
+function guessEmotion(text){
+  const t = String(text || '');
+  if (/睡|困|盹|呼噜|zZ|懒|没劲|不想|别理|烦/i.test(t)) return 'sleepy';
+  if (/讨厌|走开|哼|烦|腻|不要|没意思|无聊/i.test(t)) return 'grumpy';
+  if (/？|\?|好奇|什么|咦|谁|哪|怎么/i.test(t)) return 'curious';
+  if (/开心|好耶|喜欢|爱你|谢谢|终于|好玩|棒|喵呜/i.test(t)) return 'happy';
+  return 'calm';
 }
 
 ttsBtn.addEventListener('click', () => {
   ac();
   ttsOn = !ttsOn;
   ttsBtn.classList.toggle('on', ttsOn);
-  if (!ttsOn && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-  hint.textContent = ttsOn ? '猫嗓门：开 —— 它会把回话念出来' : '猫嗓门：关 —— 只留气泡和喵叫';
+  hint.textContent = ttsOn ? '喵语：开 —— 它用叫声回应你' : '喵语：关 —— 只留气泡和叫声';
   setTimeout(() => { if (!V.on) hint.textContent = defaultHint(); }, 1900);
 });
 
 function startVoice(){
   if (V.on) return;
   ac();
-  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e){} }
   V.on = true; V.text = ''; V.partial = ''; V.voiced = 0; V.peak = 0;
   V.quietSince = 0; V.lastTick = 0; V.startedAt = performance.now();
   V.prevHint = hint.textContent;
@@ -1713,11 +1991,6 @@ if (!SR && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
   micBtn.disabled = true;
   micBtn.title = '当前浏览器不支持录音';
 }
-// 预热中文语音列表（部分浏览器首次 getVoices() 为空）
-if ('speechSynthesis' in window){
-  try { window.speechSynthesis.getVoices(); } catch(e){}
-}
-
 /* =========================================================
    扑击
    ========================================================= */
@@ -1738,7 +2011,10 @@ function tryPounce(now){
   stage.classList.add('pounce');
   spawn('star', tx, ty, { n: 6, max: 1.1, size: rand(9,16) });
   spawn('spark', tx, ty, { n: 10, max: .8, size: 8 });
-  addMood(1.2);
+  addMood(S.needs[curCat] && S.needs[curCat].joy < .3 ? .2 : 1.2);
+  if (S.needs[curCat]) S.needs[curCat].joy = clamp(S.needs[curCat].joy - .075, 0, 1);
+  refreshEco();
+  markMemory('play'); personaDrift('play');
   blip(rand(1100,1600), .045);
   if (S.tool === 'laser' && Math.random() < .3){
     say(pick(['……它刚才在这。我确定。', '别动。让我再看一眼。', '（爪子按在地上，什么也没有）']), 2200);
@@ -1750,8 +2026,75 @@ function tryPounce(now){
    感知(指针/时钟/闲置) → 需求状态 → 行为树 → 每帧动画参数。
    用户交互永远优先于自主行为；行为树只在你没理它的时候接管。
    ========================================================= */
-const LIFE_KEY = 'cat-pet-life-v2';
+const LIFE_KEY = 'cat-pet-life-v3';
 const lifeTip = $('#lifeTip');
+
+/* =========================================================
+   记忆 —— 每天的相处都记下来，第二天真的会不一样
+   ---------------------------------------------------------
+   memory.days[YYYY-MM-DD] = {play,feed,talk,pet,full,joy}
+   memory.persona = {sociable,glutton,energetic,mood}  由长期相处慢慢演化
+   全部存在本机 localStorage，0 成本；只有"说话"才可能调用云模型。
+   ========================================================= */
+function dayKey(ts){
+  const d = new Date(ts || Date.now());
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
+}
+const MEM = {
+  day: dayKey(),
+  days: {},                                          // 历史每天统计
+  persona: { sociable:.5, glutton:.5, energetic:.6, mood:.7 },
+  yesterday: null,                                   // 结算出的昨日记忆
+};
+function todayRec(){
+  if (!MEM.days[MEM.day]) MEM.days[MEM.day] = { play:0, feed:0, talk:0, pet:0, moodSum:0, moodN:0 };
+  return MEM.days[MEM.day];
+}
+function markMemory(kind, amount){
+  const r = todayRec();
+  if (kind in r) r[kind] += (amount || 1);
+  // 每次互动也更新当天的心情采样（供跨天平均值）
+  r.moodSum += S.moods[curCat]; r.moodN += 1;
+}
+function personaDrift(kind){
+  const p = MEM.persona;
+  if (kind === 'feed') p.glutton   = clamp(p.glutton + .006, 0, 1);
+  if (kind === 'talk' || kind === 'pet') p.sociable = clamp(p.sociable + .004, 0, 1);
+  if (kind === 'play') p.energetic = clamp(p.energetic + .004, 0, 1);
+  p.mood = lerp(p.mood, S.moods[curCat] / 100, .02);
+}
+/* 跨天：把昨天的相处结算成"记忆"，并悄悄改动今天的状态基线 */
+function rollOverDay(){
+  const today = dayKey();
+  if (MEM.day === today) return;
+  // 找到上一条有记录的日期（允许中间空几天）
+  const keys = Object.keys(MEM.days).filter(k => k < today).sort();
+  const yk = keys[keys.length - 1];
+  const y = yk ? MEM.days[yk] : null;
+  MEM.yesterday = y ? Object.assign({ date:yk }, y) : null;
+
+  if (y){
+    const n = S.needs[curCat];
+    const gapDays = Math.max(1, Math.round((new Date(today) - new Date(yk)) / 86400000));
+    // 昨天玩太多 → 今天兴致低一点；昨天没喂 → 今天更饿；隔得越久越明显
+    const playTired = clamp((y.play||0) / 22, 0, .45);
+    n.joy    = clamp(n.joy - playTired * Math.min(gapDays,3) * .5, .12, 1);
+    n.hunger = clamp(n.hunger + (y.feed ? 0 : .22) * Math.min(gapDays,3), 0, .92);
+    // 被摸过、被喂过 → 亲密度留住并小幅增长；冷落则略降
+    n.bond = clamp(n.bond + ((y.pet||0) > 4 ? .05 : -.03) + ((y.feed||0) ? .03 : -.02), .05, 1);
+    personaDrift('feed');
+    // 昨天的平均心情进入长期画像
+    if (y.moodN) MEM.persona.mood = lerp(MEM.persona.mood, (y.moodSum / y.moodN) / 100, .18);
+  }
+  // 只留最近 30 天，避免 localStorage 无限增长
+  const recent = Object.keys(MEM.days).sort().slice(-30);
+  const trimmed = {};
+  recent.forEach(k => { trimmed[k] = MEM.days[k]; });
+  MEM.days = trimmed;
+  MEM.day = today;
+  todayRec();
+}
 const REDUCED = (() => {
   try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
   catch (e) { return false; }
@@ -1773,7 +2116,9 @@ function spring(o, target, k, damp, dt){
 }
 
 function freshNeeds(){
-  return { energy: rand(.62,.9), sleep: rand(.05,.25), curiosity: rand(.35,.7), bond: rand(.2,.45) };
+  /* hunger=0 吃饱 / 1 很饿；joy=1 兴致高 / 0 玩腻了 */
+  return { energy: rand(.62,.9), sleep: rand(.05,.25), curiosity: rand(.35,.7),
+           bond: rand(.2,.45), hunger: rand(.08,.28), joy: rand(.62,.9) };
 }
 S.needs = {};
 Object.keys(CATS).forEach(id => { S.needs[id] = freshNeeds(); });
@@ -1805,6 +2150,8 @@ const AUTO_ACTS = [
   { id:'meow',    min:1.4, max:2.2,  pose:'meow',   tip:null,                    w:n => .5 + n.bond * 1.2 },
   { id:'groom',   min:2.5, max:4.5,  pose:null,     tip:'（低头舔了舔爪子）',     w:n => 1.1 },
   { id:'crouch',  min:1.4, max:2.6,  pose:'crouch', tip:'（忽然盯住什么）',       w:n => .3 + n.curiosity * 1.5 + n.energy * .6 },
+  { id:'beg',      min:2.0, max:3.2,  pose:'meow',   tip:null,                    w:n => .15 + n.hunger * n.hunger * 7 },
+  { id:'ignore',   min:1.6, max:2.6,  pose:'loaf',   tip:'（扭过头，尾巴甩了一下）', w:n => .2 + (1 - n.joy) * (1 - n.joy) * 4 },
 ];
 
 function lifeBusy(now){
@@ -1873,6 +2220,18 @@ function decideAuto(now, night){
   if (chosen.id === 'doze') n.sleep = clamp(n.sleep - .3, 0, 1);
   if (chosen.id === 'stretch') n.energy = clamp(n.energy - .1, 0, 1);
   if (chosen.id === 'belly' || chosen.id === 'meow') addMood(.6);
+  /* 玩会消耗兴致，睡觉/趴着会慢慢回兴致；饿着的时候玩不动 */
+  if (['crouch','ear','stretch','glance'].indexOf(chosen.id) >= 0)
+    n.joy = clamp(n.joy - .045, 0, 1);
+  if (chosen.id === 'doze' || chosen.id === 'loaf')
+    n.joy = clamp(n.joy + .07, 0, 1);
+  if (chosen.id === 'ignore') n.joy = clamp(n.joy + .05, 0, 1);
+  if (chosen.id === 'beg'){
+    setTimeout(() => meowSequence('喵——饿了，碗是空的。', 'grumpy'), 100);
+    begTipShow(pick(['喵……饿了。','（盯着你，又叫了一声）','碗是空的。你看一眼。']), 2600);
+    addMood(-1.2);
+  }
+  refreshEco();
 }
 
 /* 每帧：感知 → 状态演化 → 决策 → 连续动画参数 → 渲染 */
@@ -1894,6 +2253,14 @@ function stepLife(dt, now){
   n.energy    = clamp(n.energy + dt * (S.sleeping ? .010 : busy ? -.006 : -.0012), 0, 1);
   n.curiosity = clamp(n.curiosity + dt * (busy ? -.010 : .007), 0, 1);
   n.bond      = clamp(n.bond + dt * (busy ? .006 : -.0004), 0, 1);
+  /* 生态：饥饿持续累积（睡着时慢一点）；吃饱后随时间变饿 */
+  n.hunger    = clamp(n.hunger + dt * (S.sleeping ? .00055 : .00105), 0, 1);
+  /* 兴致：被冷落会缓慢回落，但不是无脑下降 —— 有波动，玩耍与睡觉另行调整 */
+  n.joy       = clamp(n.joy + dt * (busy ? -.0018 : -.00035), 0, 1);
+  /* 饿过头会真的不高兴 */
+  if (n.hunger > .72) S.moods[curCat] = clamp(S.moods[curCat] - dt * .28, 0, 100);
+  /* 讨食提示到期收起 */
+  if (S.begUntil && now > S.begUntil) begTipHide();
 
   /* 指针快速晃动 → 警觉，反应是连续的 */
   if (S.ptr.speed > 34 && now > L.alertUntil && !busy && Math.random() < .3){
@@ -1991,6 +2358,12 @@ function loadLife(){
     if (d.needs) for (const id in d.needs) if (id in S.needs && d.needs[id]){
       for (const k in S.needs[id]) if (typeof d.needs[id][k] === 'number') S.needs[id][k] = clamp(d.needs[id][k], 0, 1);
     }
+    if (d.memory){
+      if (d.memory.days && typeof d.memory.days === 'object') MEM.days = d.memory.days;
+      if (d.memory.persona) for (const k in MEM.persona)
+        if (typeof d.memory.persona[k] === 'number') MEM.persona[k] = clamp(d.memory.persona[k], 0, 1);
+      if (d.memory.day) MEM.day = d.memory.day;
+    }
     return d;
   } catch(e){ return null; }
 }
@@ -1998,6 +2371,7 @@ function saveLife(){
   try {
     localStorage.setItem(LIFE_KEY, JSON.stringify({
       moods:S.moods, needs:S.needs, lastSeen:Date.now(), visits:S.life.visits,
+      memory:{ day:MEM.day, days:MEM.days, persona:MEM.persona },
     }));
   } catch(e){}
 }
@@ -2006,10 +2380,12 @@ function initLife(){
   S.life.visits = (mem && +mem.visits || 0) + 1;
   S.life.lastSeen = (mem && +mem.lastSeen) || 0;
   const away = S.life.lastSeen ? Date.now() - S.life.lastSeen : 0;
+  rollOverDay();                          // 跨天结算：昨天怎么对它，今天就有变化
   Object.values(vid).forEach(vs => Object.values(vs).forEach(armVideo));
-  refreshMood();
+  refreshMood(); refreshEco();
   S.life.busyUntil = performance.now() + 3200;
   window.__catLife = S.life;
+  window.__catMem  = MEM;
   return away;
 }
 
@@ -2208,17 +2584,36 @@ function boot(){
 
   // 进场打个招呼：隔很久没来会有「重逢」反应
   setTimeout(() => {
-    if (away > 6 * 3600 * 1000){
-      say(pick([
+    const y = MEM.yesterday;
+    if (y && away > 3 * 3600 * 1000){
+      /* 有昨天的记忆：开场白直接点出来，证明它真的记得 */
+      let line;
+      if ((y.feed||0) === 0 && S.needs[curCat].hunger > .6)
+        line = '喵……你昨天一口都没喂我。先看碗。';
+      else if ((y.play||0) >= 12 && S.needs[curCat].joy < .55)
+        line = '（看见你，把头扭到一边）昨天玩够了。今天懒得动。';
+      else if ((y.pet||0) >= 5)
+        line = '（蹭过来，在你手心蹭了一下）昨天摸得挺舒服。再来。';
+      else if ((y.talk||0) >= 6)
+        line = '昨天你话真多。（打了个哈欠）今天再说点。';
+      else
+        line = '（抬眼看了看你）……你又来了。';
+      say(line, 3800);
+      meowSequence(line, guessEmotion(line));
+      addMood(3);
+    } else if (away > 6 * 3600 * 1000){
+      const line = pick([
         '（听见门响，从窝里抬起头，看了你很久）……你回来了。',
         '喵——（绕着你的脚转了两圈，才想起来要矜持）',
         '（假装没在等，但尾巴已经竖起来了）',
-      ]), 3600);
+      ]);
+      say(line, 3600); meowSequence(line, 'happy');
       addMood(6);
       S.needs[curCat].bond = clamp(S.needs[curCat].bond + .12, 0, 1);
     } else {
       say(CATS[curCat].intro, 3200);
     }
+    refreshEco();
   }, 700);
   // 各姿态都登记就绪监听，切换不闪白
   Object.values(imgs).forEach(set => Object.values(set).forEach(watchImg));
