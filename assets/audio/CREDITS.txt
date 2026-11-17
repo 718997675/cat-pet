@@ -1,0 +1,11 @@
+猫叫音频素材来源（全部真实猫叫录音，仅截取短片段并做淡入淡出/音量归一化处理）：
+
+- meow-b.m4a  来源: "Meow domestic cat", Wikimedia Commons, GFDL
+- meow-c/d/e  来源: "Meow of a pleading cat", Wikimedia Commons, Public domain
+- meow-f.m4a  来源: "GettingOutImpatient", Wikimedia Commons, Public domain
+
+已剔除：原 meow-a.m4a（"Meow of a Siamese cat", CC0）基频仅约 246Hz，
+低沉拖长的听感接近羊叫，与其余 500~620Hz 的典型猫叫声不协调，故不再使用/收录。
+
+处理后每片时长 0.7-1.0 秒，AAC 64kbps 单声道，总计约 47KB。
+播放时随机选段、随机 1~2 声、随机语速与间隔，避免固定套路。
